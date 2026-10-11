@@ -1,0 +1,13 @@
+# Secrets
+.env
+
+# Données locales (base SQLite, logs)
+data/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/

@@ -1,0 +1,14 @@
+# Bot Discord
+discord.py>=2.4,<3
+# Base de données asynchrone
+aiosqlite>=0.20
+# Lecture du fichier .env
+python-dotenv>=1.0
+# Appels HTTP asynchrones (Ollama, OSINT)
+aiohttp>=3.9
+# Graphiques
+matplotlib>=3.8
+# Lecture/nettoyage EXIF des images
+pillow>=10.0
+# Fuseaux horaires (nécessaire sous Windows)
+tzdata>=2024.1
