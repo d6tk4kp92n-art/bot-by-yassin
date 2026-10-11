@@ -201,7 +201,8 @@ class Config:
             manquants.append("WEBHOOK_CHANNEL_ID")
         if manquants:
             raise ValueError(
-                "Il manque dans le fichier .env : " + ", ".join(manquants)
+                "Il manque dans le fichier .env : "
+                + ", ".join(manquants)
                 + ". Ouvre .env et remplis ces lignes (voir .env.example)."
             )
         assert owner is not None and salon is not None

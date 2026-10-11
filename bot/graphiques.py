@@ -108,20 +108,45 @@ def graphique(
         couleur = COULEURS_COMPTES[i % len(COULEURS_COMPTES)]
         style = "-" if i < len(COULEURS_COMPTES) else "--"  # au-delà de 8 : pointillés
         dates = [datetime.fromtimestamp(x, FUSEAU) for x in xs]
-        ax.plot(dates, ys, color=couleur, linewidth=2, linestyle=style, label=nom,
-                solid_capstyle="round", solid_joinstyle="round")
+        ax.plot(
+            dates,
+            ys,
+            color=couleur,
+            linewidth=2,
+            linestyle=style,
+            label=nom,
+            solid_capstyle="round",
+            solid_joinstyle="round",
+        )
         # Point final avec un anneau couleur du fond, pour rester lisible au croisement
-        ax.plot(dates[-1:], ys[-1:], marker="o", markersize=7, color=couleur,
-                markeredgecolor=FOND, markeredgewidth=2)
+        ax.plot(
+            dates[-1:],
+            ys[-1:],
+            marker="o",
+            markersize=7,
+            color=couleur,
+            markeredgecolor=FOND,
+            markeredgewidth=2,
+        )
         if etiquettes:
             ax.annotate(
                 f"{formater_nombre(ys[-1])}".replace(" ", " "),
-                xy=(dates[-1], ys[-1]), xytext=(8, 0), textcoords="offset points",
-                va="center", fontsize=9, color=ENCRE,
+                xy=(dates[-1], ys[-1]),
+                xytext=(8, 0),
+                textcoords="offset points",
+                va="center",
+                fontsize=9,
+                color=ENCRE,
             )
 
-    ax.set_title(f"{_TITRES.get(type_, type_)} · {titre_periode}", color=ENCRE, fontsize=13,
-                 loc="left", pad=12, fontweight="bold")
+    ax.set_title(
+        f"{_TITRES.get(type_, type_)} · {titre_periode}",
+        color=ENCRE,
+        fontsize=13,
+        loc="left",
+        pad=12,
+        fontweight="bold",
+    )
     ax.grid(axis="y", color=GRILLE, linewidth=1)
     ax.grid(axis="x", visible=False)
     for cote in ("top", "right", "left"):
@@ -144,8 +169,13 @@ def graphique(
     ax.margins(x=0.08 if etiquettes else 0.02)
 
     if len(courbes) >= 2:
-        legende = ax.legend(loc="upper left", frameon=False, labelcolor=ENCRE_SECONDAIRE,
-                            ncol=min(5, len(courbes)), handlelength=1.6)
+        legende = ax.legend(
+            loc="upper left",
+            frameon=False,
+            labelcolor=ENCRE_SECONDAIRE,
+            ncol=min(5, len(courbes)),
+            handlelength=1.6,
+        )
         for ligne in legende.get_lines():
             ligne.set_linewidth(3)
 

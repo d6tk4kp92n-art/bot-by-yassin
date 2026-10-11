@@ -32,9 +32,13 @@ async def repondre_erreur(interaction: discord.Interaction, texte: str) -> None:
 class VueBase(discord.ui.View):
     """Vue qui n'affiche jamais de trace Python : un message gentil à la place."""
 
-    async def on_error(self, interaction: discord.Interaction, error: Exception, item: discord.ui.Item[Any]) -> None:
+    async def on_error(
+        self, interaction: discord.Interaction, error: Exception, item: discord.ui.Item[Any]
+    ) -> None:
         log.exception("Erreur dans un composant (%s)", type(item).__name__, exc_info=error)
-        await repondre_erreur(interaction, "Quelque chose s'est mal passé avec ce bouton. Réessaie dans un instant.")
+        await repondre_erreur(
+            interaction, "Quelque chose s'est mal passé avec ce bouton. Réessaie dans un instant."
+        )
 
 
 class VueResume(VueBase):
@@ -47,39 +51,79 @@ class VueResume(VueBase):
     async def _cog(self, interaction: discord.Interaction) -> Any:
         cog = interaction.client.get_cog("Resumes")  # type: ignore[attr-defined]
         if cog is None:
-            await repondre_erreur(interaction, "Le module des résumés n'est pas disponible pour le moment.")
+            await repondre_erreur(
+                interaction, "Le module des résumés n'est pas disponible pour le moment."
+            )
         return cog
 
-    @discord.ui.button(label="Actualiser", emoji="🔄", style=discord.ButtonStyle.primary, custom_id="tw:resume:actualiser", row=0)
+    @discord.ui.button(
+        label="Actualiser",
+        emoji="🔄",
+        style=discord.ButtonStyle.primary,
+        custom_id="tw:resume:actualiser",
+        row=0,
+    )
     async def actualiser(self, interaction: discord.Interaction, _b: discord.ui.Button) -> None:
         if cog := await self._cog(interaction):
             await cog.bouton_actualiser(interaction)
 
-    @discord.ui.button(label="Copiable", emoji="📋", style=discord.ButtonStyle.secondary, custom_id="tw:resume:copiable", row=0)
+    @discord.ui.button(
+        label="Copiable",
+        emoji="📋",
+        style=discord.ButtonStyle.secondary,
+        custom_id="tw:resume:copiable",
+        row=0,
+    )
     async def copiable(self, interaction: discord.Interaction, _b: discord.ui.Button) -> None:
         if cog := await self._cog(interaction):
             await cog.bouton_copiable(interaction)
 
-    @discord.ui.button(label="Stats", emoji="📈", style=discord.ButtonStyle.secondary, custom_id="tw:resume:stats", row=0)
+    @discord.ui.button(
+        label="Stats",
+        emoji="📈",
+        style=discord.ButtonStyle.secondary,
+        custom_id="tw:resume:stats",
+        row=0,
+    )
     async def stats(self, interaction: discord.Interaction, _b: discord.ui.Button) -> None:
         if cog := await self._cog(interaction):
             await cog.bouton_stats(interaction)
 
-    @discord.ui.button(label="Estimation", emoji="🔮", style=discord.ButtonStyle.secondary, custom_id="tw:resume:estimation", row=1)
+    @discord.ui.button(
+        label="Estimation",
+        emoji="🔮",
+        style=discord.ButtonStyle.secondary,
+        custom_id="tw:resume:estimation",
+        row=1,
+    )
     async def estimation(self, interaction: discord.Interaction, _b: discord.ui.Button) -> None:
         if cog := await self._cog(interaction):
             await cog.bouton_estimation(interaction)
 
-    @discord.ui.button(label="Graphique", emoji="📊", style=discord.ButtonStyle.secondary, custom_id="tw:resume:graphique", row=1)
+    @discord.ui.button(
+        label="Graphique",
+        emoji="📊",
+        style=discord.ButtonStyle.secondary,
+        custom_id="tw:resume:graphique",
+        row=1,
+    )
     async def graphique(self, interaction: discord.Interaction, _b: discord.ui.Button) -> None:
         if cog := await self._cog(interaction):
             await cog.bouton_graphique(interaction)
 
-    @discord.ui.button(label="Paramètres", emoji="⚙️", style=discord.ButtonStyle.secondary, custom_id="tw:resume:parametres", row=1)
+    @discord.ui.button(
+        label="Paramètres",
+        emoji="⚙️",
+        style=discord.ButtonStyle.secondary,
+        custom_id="tw:resume:parametres",
+        row=1,
+    )
     async def parametres(self, interaction: discord.Interaction, _b: discord.ui.Button) -> None:
         cog = interaction.client.get_cog("Parametres")  # type: ignore[attr-defined]
         if cog is None:
-            await repondre_erreur(interaction, "Le panneau des paramètres n'est pas disponible pour le moment.")
+            await repondre_erreur(
+                interaction, "Le panneau des paramètres n'est pas disponible pour le moment."
+            )
             return
         await cog.ouvrir_panneau(interaction)
 
@@ -87,7 +131,9 @@ class VueResume(VueBase):
 class VuePagination(VueBase):
     """◀️ ▶️ pour feuilleter une liste d'embeds."""
 
-    def __init__(self, pages: Sequence[discord.Embed], auteur_id: int | None = None, timeout: float = 300) -> None:
+    def __init__(
+        self, pages: Sequence[discord.Embed], auteur_id: int | None = None, timeout: float = 300
+    ) -> None:
         super().__init__(timeout=timeout)
         self.pages = list(pages)
         self.index = 0
@@ -122,12 +168,19 @@ class VuePagination(VueBase):
         await interaction.response.edit_message(embed=self.pages[self.index], view=self)
 
 
-async def envoyer_pages(interaction: discord.Interaction, pages: Sequence[discord.Embed], ephemeral: bool = True) -> None:
+async def envoyer_pages(
+    interaction: discord.Interaction, pages: Sequence[discord.Embed], ephemeral: bool = True
+) -> None:
     """Envoie une liste d'embeds : avec boutons de pagination seulement s'il y a plusieurs pages."""
     if len(pages) <= 1:
         await repondre(interaction, ephemeral=ephemeral, embed=pages[0] if pages else None)
         return
-    await repondre(interaction, ephemeral=ephemeral, embed=pages[0], view=VuePagination(pages, interaction.user.id))
+    await repondre(
+        interaction,
+        ephemeral=ephemeral,
+        embed=pages[0],
+        view=VuePagination(pages, interaction.user.id),
+    )
 
 
 class VueConfirmation(VueBase):
@@ -160,4 +213,6 @@ class VueConfirmation(VueBase):
         if self.annulation is not None:
             await self.annulation(interaction)
         else:
-            await interaction.response.edit_message(content="Action annulée.", embed=None, view=None)
+            await interaction.response.edit_message(
+                content="Action annulée.", embed=None, view=None
+            )

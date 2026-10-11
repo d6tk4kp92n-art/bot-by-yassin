@@ -12,6 +12,7 @@ __all__ = [
     "formater_duree",
     "formater_nombre",
     "nombre",
+    "pluriel",
     "ts",
     "tronquer",
 ]
@@ -38,6 +39,11 @@ EMOJI = {
 def nombre(valeur: float | None) -> str:
     """37807 -> « 37 807 »."""
     return formater_nombre(valeur)
+
+
+def pluriel(n: float, mot: str, pluriel_: str | None = None) -> str:
+    """pluriel(1, "mission") -> « 1 mission » ; pluriel(3, "mission") -> « 3 missions »."""
+    return f"{nombre(n)} {mot if abs(n) < 2 else (pluriel_ or mot + 's')}"
 
 
 def ts(horodatage: float | None, style: str = "R") -> str:

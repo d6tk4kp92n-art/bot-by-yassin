@@ -64,7 +64,11 @@ class Resumes(commands.Cog):
         contenu = f"<@{self.bot.config.owner_id}>" if self.bot.reglages["resume_ping"] else None
         message = await salon.send(content=contenu, embed=embed, view=self.vue())
         ancien = self.bot.reglages["_dernier_resume"]
-        if self.bot.reglages["resume_supprimer_ancien"] and isinstance(ancien, list) and len(ancien) == 2:
+        if (
+            self.bot.reglages["resume_supprimer_ancien"]
+            and isinstance(ancien, list)
+            and len(ancien) == 2
+        ):
             await self._supprimer(int(ancien[0]), int(ancien[1]))
         await self.bot.reglages.definir("_dernier_resume", [message.channel.id, message.id])
         return message
@@ -105,21 +109,31 @@ class Resumes(commands.Cog):
 
     # ------------------------------------------------------------ commandes
 
-    async def _commande_resume(self, interaction: discord.Interaction, format_: app_commands.Choice[str] | None) -> None:
+    async def _commande_resume(
+        self, interaction: discord.Interaction, format_: app_commands.Choice[str] | None
+    ) -> None:
         await interaction.response.defer(thinking=True)
         embed = await self.construire(format_.value if format_ else None)
         await interaction.followup.send(embed=embed, view=self.vue() or discord.utils.MISSING)
 
-    @app_commands.command(name="resume", description="Affiche le résumé du farm de tous les comptes")
+    @app_commands.command(
+        name="resume", description="Affiche le résumé du farm de tous les comptes"
+    )
     @app_commands.describe(format="Format d'affichage (par défaut : celui des paramètres)")
     @app_commands.choices(format=CHOIX_FORMAT)
-    async def resume(self, interaction: discord.Interaction, format: app_commands.Choice[str] | None = None) -> None:
+    async def resume(
+        self, interaction: discord.Interaction, format: app_commands.Choice[str] | None = None
+    ) -> None:
         await self._commande_resume(interaction, format)
 
-    @app_commands.command(name="résumé", description="Affiche le résumé du farm de tous les comptes")
+    @app_commands.command(
+        name="résumé", description="Affiche le résumé du farm de tous les comptes"
+    )
     @app_commands.describe(format="Format d'affichage (par défaut : celui des paramètres)")
     @app_commands.choices(format=CHOIX_FORMAT)
-    async def resume_accent(self, interaction: discord.Interaction, format: app_commands.Choice[str] | None = None) -> None:
+    async def resume_accent(
+        self, interaction: discord.Interaction, format: app_commands.Choice[str] | None = None
+    ) -> None:
         await self._commande_resume(interaction, format)
 
     # ------------------------------------------------------------ boutons (appelés par VueResume)
@@ -130,26 +144,35 @@ class Resumes(commands.Cog):
 
     async def bouton_copiable(self, interaction: discord.Interaction) -> None:
         etats = await self.bot.services.etat_comptes()
-        await repondre(interaction, embed=embed_info("📋 Résumé copiable", texte_copiable(etats, self.bot.reglages)))
+        await repondre(
+            interaction,
+            embed=embed_info("📋 Résumé copiable", texte_copiable(etats, self.bot.reglages)),
+        )
 
     async def bouton_stats(self, interaction: discord.Interaction) -> None:
         cog = self.bot.get_cog("Stats")
         if cog is None:
-            await repondre(interaction, embed=embed_erreur("Le module des stats n'est pas disponible."))
+            await repondre(
+                interaction, embed=embed_erreur("Le module des stats n'est pas disponible.")
+            )
             return
         await cog.repondre_stats(interaction, "session")  # type: ignore[attr-defined]
 
     async def bouton_estimation(self, interaction: discord.Interaction) -> None:
         cog = self.bot.get_cog("Stats")
         if cog is None:
-            await repondre(interaction, embed=embed_erreur("Le module des stats n'est pas disponible."))
+            await repondre(
+                interaction, embed=embed_erreur("Le module des stats n'est pas disponible.")
+            )
             return
         await cog.repondre_estimation(interaction, float(self.bot.reglages["estimation_heures"]))  # type: ignore[attr-defined]
 
     async def bouton_graphique(self, interaction: discord.Interaction) -> None:
         cog = self.bot.get_cog("Stats")
         if cog is None:
-            await repondre(interaction, embed=embed_erreur("Le module des stats n'est pas disponible."))
+            await repondre(
+                interaction, embed=embed_erreur("Le module des stats n'est pas disponible.")
+            )
             return
         await cog.repondre_graphique(interaction, "gold", "aujourdhui")  # type: ignore[attr-defined]
 
@@ -196,7 +219,11 @@ class Resumes(commands.Cog):
                 await self.bot.reglages.definir("_dernier_rapport_jour", jour)
                 await self.envoyer_rapport(hebdo=False)
             semaine = f"{maintenant.isocalendar().year}-S{maintenant.isocalendar().week}"
-            if r["rapport_hebdo"] and maintenant.weekday() == 6 and r["_dernier_rapport_semaine"] != semaine:
+            if (
+                r["rapport_hebdo"]
+                and maintenant.weekday() == 6
+                and r["_dernier_rapport_semaine"] != semaine
+            ):
                 await self.bot.reglages.definir("_dernier_rapport_semaine", semaine)
                 await self.envoyer_rapport(hebdo=True)
         except Exception:
@@ -208,7 +235,9 @@ class Resumes(commands.Cog):
         # Au premier démarrage, ne pas envoyer immédiatement le rapport d'une journée déjà passée
         maintenant = datetime.now(FUSEAU)
         h, m = heure_rapport(str(self.bot.reglages["rapport_heure"]))
-        if (maintenant.hour, maintenant.minute) >= (h, m) and self.bot.reglages["_dernier_rapport_jour"] is None:
+        if (maintenant.hour, maintenant.minute) >= (h, m) and self.bot.reglages[
+            "_dernier_rapport_jour"
+        ] is None:
             await self.bot.reglages.definir("_dernier_rapport_jour", maintenant.date().isoformat())
 
 

@@ -48,7 +48,11 @@ class Surveillance(commands.Cog):
     async def on_message(self, message: discord.Message) -> None:
         if not self._est_salon_webhook(message.channel.id) or not message.embeds:
             return
-        await self.traiter_message(message.id, message.created_at.timestamp(), [e.to_dict() for e in message.embeds])
+        if self.bot.user is not None and message.author.id == self.bot.user.id:
+            return  # nos propres alertes et résumés
+        await self.traiter_message(
+            message.id, message.created_at.timestamp(), [e.to_dict() for e in message.embeds]
+        )
 
     @commands.Cog.listener()
     async def on_raw_message_edit(self, payload: discord.RawMessageUpdateEvent) -> None:
@@ -64,7 +68,9 @@ class Surveillance(commands.Cog):
         except Exception:
             log.exception("Erreur en lisant un message modifié")
 
-    async def traiter_message(self, message_id: int, horodatage: float, embeds: list[dict], alerter: bool = True) -> bool:
+    async def traiter_message(
+        self, message_id: int, horodatage: float, embeds: list[dict], alerter: bool = True
+    ) -> bool:
         """Lit un message du webhook et l'enregistre. Renvoie True si c'est une NOUVELLE mission."""
         try:
             mission = lire_embeds(embeds, message_id, horodatage)
@@ -93,7 +99,9 @@ class Surveillance(commands.Cog):
         except Exception:
             log.exception("Erreur pendant la détection d'anomalies")
         try:
-            alertes = self.bot.moteur.mission_recue(mission, self.bot.reglages, maintenant, anomalies)
+            alertes = self.bot.moteur.mission_recue(
+                mission, self.bot.reglages, maintenant, anomalies
+            )
         except Exception:
             log.exception("Erreur dans le moteur de surveillance")
             alertes = []
@@ -109,7 +117,9 @@ class Surveillance(commands.Cog):
 
     async def envoyer_alerte(self, alerte: Alerte) -> None:
         try:
-            await self.bot.db.ajouter_evenement(alerte.compte, alerte.type, alerte.titre, alerte.horodatage)
+            await self.bot.db.ajouter_evenement(
+                alerte.compte, alerte.type, alerte.titre, alerte.horodatage
+            )
         except Exception:
             log.exception("Impossible d'enregistrer l'événement")
         salon = self.bot.salon_alertes()
@@ -167,7 +177,10 @@ class Surveillance(commands.Cog):
                     manques.append(message)
                 for message in reversed(manques):  # puis dans l'ordre chronologique
                     ok = await self.traiter_message(
-                        message.id, message.created_at.timestamp(), [e.to_dict() for e in message.embeds], alerter=False
+                        message.id,
+                        message.created_at.timestamp(),
+                        [e.to_dict() for e in message.embeds],
+                        alerter=False,
                     )
                     nouvelles += int(ok)
         except Exception:
@@ -210,10 +223,14 @@ class Surveillance(commands.Cog):
             self.bot.moteur.reprendre(time.time())
         await self.bot.mettre_a_jour_statut()
 
-    @app_commands.command(name="pause", description="Met en pause ou relance toutes les alertes de surveillance")
+    @app_commands.command(
+        name="pause", description="Met en pause ou relance toutes les alertes de surveillance"
+    )
     async def pause(self, interaction: discord.Interaction) -> None:
         if not self.bot.est_proprietaire(interaction.user):
-            raise app_commands.CheckFailure("🔒 Cette commande est réservée au propriétaire du bot.")
+            raise app_commands.CheckFailure(
+                "🔒 Cette commande est réservée au propriétaire du bot."
+            )
         nouvelle_pause = not self.bot.moteur.pause
         await self.definir_pause(nouvelle_pause)
         delai = self.bot.reglages["delai_absence_min"]

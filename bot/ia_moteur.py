@@ -57,8 +57,18 @@ def parametres_mode(mode: str, nb_coeurs: int | None = None) -> dict[str, Any]:
     """Options Ollama selon le mode : « leger » économise le PC, « equilibre » répond plus longuement."""
     coeurs = nb_coeurs or os.cpu_count() or 4
     if mode == "equilibre":
-        return {"num_ctx": 6144, "num_predict": 900, "num_thread": max(2, coeurs // 2), "temperature": 0.6}
-    return {"num_ctx": 4096, "num_predict": 450, "num_thread": max(2, coeurs // 4), "temperature": 0.5}
+        return {
+            "num_ctx": 6144,
+            "num_predict": 900,
+            "num_thread": max(2, coeurs // 2),
+            "temperature": 0.6,
+        }
+    return {
+        "num_ctx": 4096,
+        "num_predict": 450,
+        "num_thread": max(2, coeurs // 4),
+        "temperature": 0.5,
+    }
 
 
 def delai_mode(mode: str) -> float:
@@ -112,7 +122,7 @@ class OutilsNonSupportes(Exception):
 class ClientIA(Protocol):
     url: str
 
-    async def tags(self) -> list[dict[str, Any]]: ...
+    async def tags(self, delai: float = 5) -> list[dict[str, Any]]: ...
     async def ps(self) -> list[dict[str, Any]]: ...
     async def chat(self, corps: dict[str, Any], delai: float) -> dict[str, Any]: ...
     async def fermer(self) -> None: ...
@@ -130,10 +140,15 @@ class ClientOllama:
             self._session = aiohttp.ClientSession()
         return self._session
 
-    async def _requete(self, methode: str, chemin: str, delai: float, corps: Any = None) -> dict[str, Any]:
+    async def _requete(
+        self, methode: str, chemin: str, delai: float, corps: Any = None
+    ) -> dict[str, Any]:
         try:
             async with self._s().request(
-                methode, f"{self.url}{chemin}", json=corps, timeout=aiohttp.ClientTimeout(total=delai)
+                methode,
+                f"{self.url}{chemin}",
+                json=corps,
+                timeout=aiohttp.ClientTimeout(total=delai),
             ) as rep:
                 texte = await rep.text()
                 try:
@@ -149,8 +164,8 @@ class ClientOllama:
         except aiohttp.ClientConnectionError:
             raise OllamaAbsent(self.url) from None
 
-    async def tags(self) -> list[dict[str, Any]]:
-        return list((await self._requete("GET", "/api/tags", 5)).get("models") or [])
+    async def tags(self, delai: float = 5) -> list[dict[str, Any]]:
+        return list((await self._requete("GET", "/api/tags", delai)).get("models") or [])
 
     async def ps(self) -> list[dict[str, Any]]:
         return list((await self._requete("GET", "/api/ps", 5)).get("models") or [])
@@ -179,12 +194,20 @@ class SourceDonnees(Protocol):
     reglages: Mapping[str, Any]
 
     async def etat_comptes(self, maintenant: float | None = None) -> Sequence[Any]: ...
-    async def stats(self, periode: str, maintenant: float | None = None, comptes: list[str] | None = None) -> Sequence[Any]: ...
-    async def drops_rares(self, compte: str | None, rarete_min: str, periode: str = "tout", limite: int = 200) -> Sequence[Any]: ...
-    async def estimations(self, heures: float, maintenant: float | None = None) -> Sequence[Any]: ...
+    async def stats(
+        self, periode: str, maintenant: float | None = None, comptes: list[str] | None = None
+    ) -> Sequence[Any]: ...
+    async def drops_rares(
+        self, compte: str | None, rarete_min: str, periode: str = "tout", limite: int = 200
+    ) -> Sequence[Any]: ...
+    async def estimations(
+        self, heures: float, maintenant: float | None = None
+    ) -> Sequence[Any]: ...
 
 
-def _outil(nom: str, description: str, proprietes: dict[str, Any], requis: list[str]) -> dict[str, Any]:
+def _outil(
+    nom: str, description: str, proprietes: dict[str, Any], requis: list[str]
+) -> dict[str, Any]:
     return {
         "type": "function",
         "function": {
@@ -195,14 +218,26 @@ def _outil(nom: str, description: str, proprietes: dict[str, Any], requis: list[
     }
 
 
-PERIODE_PARAM = {"type": "string", "enum": list(PERIODES), "description": "session, aujourdhui, 7j, 30j ou tout"}
+PERIODE_PARAM = {
+    "type": "string",
+    "enum": list(PERIODES),
+    "description": "session, aujourdhui, 7j, 30j ou tout",
+}
 
 DEFINITIONS_OUTILS: list[dict[str, Any]] = [
-    _outil("obtenir_etat_comptes", "État actuel de chaque compte : en ligne ou non, zone, niveau, gains récents, rythme par heure.", {}, []),
+    _outil(
+        "obtenir_etat_comptes",
+        "État actuel de chaque compte : en ligne ou non, zone, niveau, gains récents, rythme par heure.",
+        {},
+        [],
+    ),
     _outil(
         "obtenir_stats",
         "Statistiques d'un compte (ou de tous) sur une période : gold, XP, gems, missions, temps de jeu, disponibilité, records.",
-        {"compte": {"type": "string", "description": "Nom du compte, ou 'tous'"}, "periode": PERIODE_PARAM},
+        {
+            "compte": {"type": "string", "description": "Nom du compte, ou 'tous'"},
+            "periode": PERIODE_PARAM,
+        },
         ["periode"],
     ),
     _outil(
@@ -210,7 +245,10 @@ DEFINITIONS_OUTILS: list[dict[str, Any]] = [
         "Objets rares obtenus (du plus récent au plus ancien).",
         {
             "compte": {"type": "string", "description": "Nom du compte, ou 'tous'"},
-            "rarete_min": {"type": "string", "description": "Rareté minimum (Common, Uncommon, Rare, Epic, Legendary, Mythic, Secret, Exotic)"},
+            "rarete_min": {
+                "type": "string",
+                "description": "Rareté minimum (Common, Uncommon, Rare, Epic, Legendary, Mythic, Secret, Exotic)",
+            },
             "periode": PERIODE_PARAM,
         },
         [],
@@ -241,7 +279,14 @@ class OutilsIA:
     @staticmethod
     def _periode(periode: Any) -> str:
         p = str(periode or "aujourdhui").strip().casefold().replace("'", "").replace(" ", "")
-        alias = {"today": "aujourdhui", "jour": "aujourdhui", "semaine": "7j", "7jours": "7j", "mois": "30j", "30jours": "30j"}
+        alias = {
+            "today": "aujourdhui",
+            "jour": "aujourdhui",
+            "semaine": "7j",
+            "7jours": "7j",
+            "mois": "30j",
+            "30jours": "30j",
+        }
         p = alias.get(p, p)
         return p if p in PERIODES else "aujourdhui"
 
@@ -249,29 +294,36 @@ class OutilsIA:
         resultat = []
         for e in await self.source.etat_comptes():
             d = e.derniere
-            resultat.append({
-                "compte": e.nom,
-                "en_ligne": e.en_ligne,
-                "zone": e.zone,
-                "niveau": d.level if d else None,
-                "prestige": d.prestige if d else None,
-                "gems_total": d.gems_total if d else None,
-                "gold_total": d.gold_total if d else None,
-                "derniere_mission_il_y_a": formater_duree(time.time() - d.horodatage) if d else None,
-                "periode_minutes": self.source.reglages["periode_gains_min"],
-                "missions_periode": e.gains.missions,
-                "gold_periode": e.gains.gold,
-                "xp_periode": e.gains.xp,
-                "gems_periode": e.gains.gems,
-                "gold_par_heure": round(e.rythme.gold_h) if e.rythme else None,
-                "gems_par_heure": round(e.rythme.gems_h) if e.rythme else None,
-            })
+            resultat.append(
+                {
+                    "compte": e.nom,
+                    "en_ligne": e.en_ligne,
+                    "zone": e.zone,
+                    "niveau": d.level if d else None,
+                    "prestige": d.prestige if d else None,
+                    "gems_total": d.gems_total if d else None,
+                    "gold_total": d.gold_total if d else None,
+                    "derniere_mission_il_y_a": formater_duree(time.time() - d.horodatage)
+                    if d
+                    else None,
+                    "periode_minutes": self.source.reglages["periode_gains_min"],
+                    "missions_periode": e.gains.missions,
+                    "gold_periode": e.gains.gold,
+                    "xp_periode": e.gains.xp,
+                    "gems_periode": e.gains.gems,
+                    "gold_par_heure": round(e.rythme.gold_h) if e.rythme else None,
+                    "gems_par_heure": round(e.rythme.gems_h) if e.rythme else None,
+                }
+            )
         return {"comptes": resultat}
 
     async def obtenir_stats(self, compte: Any = None, periode: Any = None) -> dict[str, Any]:
         comptes = self._compte(compte)
         if comptes == []:
-            return {"erreur": f"compte inconnu : {compte}", "comptes_connus": list(self.source.reglages["comptes"])}
+            return {
+                "erreur": f"compte inconnu : {compte}",
+                "comptes_connus": list(self.source.reglages["comptes"]),
+            }
         p = self._periode(periode)
         stats = await self.source.stats(p, comptes=comptes)
         return {
@@ -295,7 +347,9 @@ class OutilsIA:
             ],
         }
 
-    async def obtenir_drops(self, compte: Any = None, rarete_min: Any = None, periode: Any = None) -> dict[str, Any]:
+    async def obtenir_drops(
+        self, compte: Any = None, rarete_min: Any = None, periode: Any = None
+    ) -> dict[str, Any]:
         comptes = self._compte(compte)
         if comptes == []:
             return {"erreur": f"compte inconnu : {compte}"}
@@ -304,14 +358,21 @@ class OutilsIA:
         if not est_rare(minimum, minimum, raretes):
             minimum = raretes[0] if raretes else "Common"
         p = self._periode(periode or "7j")
-        drops = await self.source.drops_rares(comptes[0] if comptes else None, minimum, p, limite=30)
+        drops = await self.source.drops_rares(
+            comptes[0] if comptes else None, minimum, p, limite=30
+        )
         return {
             "periode": PERIODES[p],
             "rarete_min": minimum,
             "nombre": len(drops),
             "drops": [
-                {"compte": d.compte, "objet": d.nom, "rarete": d.rarete, "quantite": d.quantite,
-                 "il_y_a": formater_duree(time.time() - d.horodatage)}
+                {
+                    "compte": d.compte,
+                    "objet": d.nom,
+                    "rarete": d.rarete,
+                    "quantite": d.quantite,
+                    "il_y_a": formater_duree(time.time() - d.horodatage),
+                }
                 for d in drops
             ],
         }
@@ -323,14 +384,20 @@ class OutilsIA:
             h = 6.0
         resultat = []
         for e in await self.source.estimations(h):
-            resultat.append({
-                "compte": e.nom,
-                "en_ligne": e.en_ligne,
-                "estimation": None if e.estimation is None else {
-                    "gold": e.estimation.gold, "xp": e.estimation.xp,
-                    "gems": e.estimation.gems, "missions": e.estimation.missions,
-                },
-            })
+            resultat.append(
+                {
+                    "compte": e.nom,
+                    "en_ligne": e.en_ligne,
+                    "estimation": None
+                    if e.estimation is None
+                    else {
+                        "gold": e.estimation.gold,
+                        "xp": e.estimation.xp,
+                        "gems": e.estimation.gems,
+                        "missions": e.estimation.missions,
+                    },
+                }
+            )
         return {"heures": h, "rythme_base_sur": "30 dernières minutes", "comptes": resultat}
 
     async def executer(self, nom: str, arguments: Mapping[str, Any] | str | None) -> dict[str, Any]:
@@ -362,7 +429,11 @@ class OutilsIA:
         jour = await self.obtenir_stats("tous", "aujourdhui")
         return (
             "Données actuelles du farm (JSON, à utiliser pour répondre, ne pas inventer d'autres chiffres) :\n"
-            + json.dumps({"etat": etat["comptes"], "aujourdhui": jour["stats"]}, ensure_ascii=False, separators=(",", ":"))
+            + json.dumps(
+                {"etat": etat["comptes"], "aujourdhui": jour["stats"]},
+                ensure_ascii=False,
+                separators=(",", ":"),
+            )
         )
 
 
@@ -403,7 +474,9 @@ class MoteurIA:
     # ------------------------------------------------------------ accès
 
     def autorise(self, utilisateur_id: int, proprietaire_id: int) -> bool:
-        return utilisateur_id == proprietaire_id or utilisateur_id in {int(u) for u in self.reglages["ia_utilisateurs"]}
+        return utilisateur_id == proprietaire_id or utilisateur_id in {
+            int(u) for u in self.reglages["ia_utilisateurs"]
+        }
 
     def limite_atteinte(self, utilisateur_id: int, maintenant: float | None = None) -> bool:
         """Max N questions par minute et par utilisateur. Enregistre la question si elle passe."""
@@ -453,11 +526,15 @@ class MoteurIA:
                 except _ErreurHTTP as exc2:
                     if "does not support tools" in exc2.message.casefold():
                         raise OutilsNonSupportes() from None
-                    raise ErreurIA(f"🤖 Ollama a renvoyé une erreur : {exc2.message[:300]}") from None
+                    raise ErreurIA(
+                        f"🤖 Ollama a renvoyé une erreur : {exc2.message[:300]}"
+                    ) from None
             raise ErreurIA(f"🤖 Ollama a renvoyé une erreur : {exc.message[:300]}") from None
 
     async def _dans_la_file(
-        self, travail: Callable[[], Awaitable[Any]], sur_attente: Callable[[int], Awaitable[None]] | None
+        self,
+        travail: Callable[[], Awaitable[Any]],
+        sur_attente: Callable[[int], Awaitable[None]] | None,
     ) -> Any:
         """Exécute `travail` quand c'est notre tour. Prévient de la position dans la file."""
         position = self._en_attente + (1 if self._verrou.locked() else 0)
@@ -500,28 +577,50 @@ class MoteurIA:
                     message = rep.get("message") or {}
                     appels = message.get("tool_calls") or []
                     if not appels:
-                        return ReponseIA(_nettoyer(message.get("content", "")), time.monotonic() - debut, utilises)
-                    messages.append({"role": "assistant", "content": message.get("content", ""), "tool_calls": appels})
+                        return ReponseIA(
+                            _nettoyer(message.get("content", "")),
+                            time.monotonic() - debut,
+                            utilises,
+                        )
+                    messages.append(
+                        {
+                            "role": "assistant",
+                            "content": message.get("content", ""),
+                            "tool_calls": appels,
+                        }
+                    )
                     for appel in appels[:4]:
                         fonction = appel.get("function") or {}
                         nom = str(fonction.get("name", ""))
                         resultat = await self.outils.executer(nom, fonction.get("arguments"))
                         utilises.append(nom)
-                        messages.append({
-                            "role": "tool",
-                            "tool_name": nom,
-                            "content": json.dumps(resultat, ensure_ascii=False, default=str)[:6000],
-                        })
+                        messages.append(
+                            {
+                                "role": "tool",
+                                "tool_name": nom,
+                                "content": json.dumps(resultat, ensure_ascii=False, default=str)[
+                                    :6000
+                                ],
+                            }
+                        )
                 # Trop de tours : on demande une réponse finale sans outils
                 rep = await self._chat(messages, outils=False)
-                return ReponseIA(_nettoyer((rep.get("message") or {}).get("content", "")), time.monotonic() - debut, utilises)
+                return ReponseIA(
+                    _nettoyer((rep.get("message") or {}).get("content", "")),
+                    time.monotonic() - debut,
+                    utilises,
+                )
             except OutilsNonSupportes:
                 # Solution de secours : les chiffres sont injectés directement avant la question
                 contexte = await self.outils.contexte_compact()
                 messages = messages[: len(historique) + 1]
                 messages.append({"role": "user", "content": f"{contexte}\n\nQuestion : {question}"})
                 rep = await self._chat(messages, outils=False)
-                return ReponseIA(_nettoyer((rep.get("message") or {}).get("content", "")), time.monotonic() - debut, secours=True)
+                return ReponseIA(
+                    _nettoyer((rep.get("message") or {}).get("content", "")),
+                    time.monotonic() - debut,
+                    secours=True,
+                )
 
         return await self._dans_la_file(travail, sur_attente)
 
@@ -534,19 +633,28 @@ class MoteurIA:
         async def travail() -> ReponseIA:
             debut = time.monotonic()
             messages = [
-                {"role": "system", "content": PROMPT_SYSTEME + "\nPour les textes à générer, donne directement le texte final, sans introduction."},
+                {
+                    "role": "system",
+                    "content": PROMPT_SYSTEME
+                    + "\nPour les textes à générer, donne directement le texte final, sans introduction.",
+                },
                 {"role": "user", "content": f"{consigne} : {sujet}"},
             ]
             rep = await self._chat(messages, outils=False)
-            return ReponseIA(_nettoyer((rep.get("message") or {}).get("content", "")), time.monotonic() - debut)
+            return ReponseIA(
+                _nettoyer((rep.get("message") or {}).get("content", "")), time.monotonic() - debut
+            )
 
         return await self._dans_la_file(travail, sur_attente)
 
     # ------------------------------------------------------------ statut
 
     async def modeles_installes(self) -> list[str]:
+        """Liste rapide (2 s max : le panneau doit répondre à Discord en moins de 3 s)."""
         try:
-            return sorted(str(m.get("name") or m.get("model")) for m in await self.client.tags())
+            return sorted(
+                str(m.get("name") or m.get("model")) for m in await self.client.tags(delai=2)
+            )
         except ErreurIA:
             return []
 
@@ -558,7 +666,9 @@ class MoteurIA:
             joignable = True
         except ErreurIA:
             modeles, charges, joignable = [], [], False
-        actif = next((m for m in charges if _meme_modele(str(m.get("name") or m.get("model")), choisi)), None)
+        actif = next(
+            (m for m in charges if _meme_modele(str(m.get("name") or m.get("model")), choisi)), None
+        )
         return StatutIA(
             joignable=joignable,
             modeles=modeles,
@@ -573,6 +683,7 @@ class MoteurIA:
 
 def _meme_modele(a: str, b: str) -> bool:
     """« qwen3.5:4b » == « qwen3.5:4b » ; « llama3 » == « llama3:latest »."""
+
     def norm(x: str) -> str:
         return x if ":" in x else f"{x}:latest"
 

@@ -161,7 +161,9 @@ def lire_drops(texte: str) -> tuple[int | None, int | None, int | None, list[Dro
     return gold, xp, gems, objets
 
 
-def lire_champs(champs: Iterable[tuple[str, str]], message_id: int, horodatage: float) -> Mission | None:
+def lire_champs(
+    champs: Iterable[tuple[str, str]], message_id: int, horodatage: float
+) -> Mission | None:
     """Construit une Mission à partir des champs (nom, valeur) d'un embed.
 
     Renvoie None si l'embed n'a pas de champ « User: » (ce n'est pas un rapport de mission).
@@ -212,7 +214,9 @@ def lire_embed_dict(embed: Mapping[str, Any], message_id: int, horodatage: float
         return None
 
 
-def lire_embeds(embeds: Iterable[Mapping[str, Any]], message_id: int, horodatage: float) -> Mission | None:
+def lire_embeds(
+    embeds: Iterable[Mapping[str, Any]], message_id: int, horodatage: float
+) -> Mission | None:
     """Prend le premier embed du message qui ressemble à un rapport de mission."""
     for embed in embeds:
         mission = lire_embed_dict(embed, message_id, horodatage)

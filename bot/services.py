@@ -67,7 +67,9 @@ class EstimationCompte:
 
 
 class Services:
-    def __init__(self, db: Database, reglages: Reglages, moteur: MoteurSurveillance, demarrage: float) -> None:
+    def __init__(
+        self, db: Database, reglages: Reglages, moteur: MoteurSurveillance, demarrage: float
+    ) -> None:
         self.db = db
         self.reglages = reglages
         self.moteur = moteur
@@ -82,7 +84,9 @@ class Services:
 
     # ------------------------------------------------------------ rythmes
 
-    async def missions_pour_rythme(self, compte: str, maintenant: float, fenetre_s: float = FENETRE_RYTHME_S) -> list[Mission]:
+    async def missions_pour_rythme(
+        self, compte: str, maintenant: float, fenetre_s: float = FENETRE_RYTHME_S
+    ) -> list[Mission]:
         """Missions de la fenêtre + la dernière juste avant (pour savoir s'il y a de l'historique)."""
         debut = maintenant - fenetre_s
         liste = await self.db.missions(compte=compte, debut=debut, fin=maintenant)
@@ -106,7 +110,9 @@ class Services:
         resultat = []
         for nom in self.comptes:
             derniere = await self.db.derniere_mission(nom)
-            recentes = await self.db.missions(compte=nom, debut=maintenant - periode_s, avec_drops=True)
+            recentes = await self.db.missions(
+                compte=nom, debut=maintenant - periode_s, avec_drops=True
+            )
             session = await self.db.missions(compte=nom, debut=self.demarrage, avec_drops=True)
             r = await self.rythme_compte(nom, maintenant)
             resultat.append(
@@ -118,19 +124,27 @@ class Services:
                     session=gains(session, raretes),
                     rythme=r,
                     estimation=estimer(r, heures) if r else None,
-                    evenements=await self.db.evenements(nom, depuis=maintenant - 6 * 3600, limite=3),
+                    evenements=await self.db.evenements(
+                        nom, depuis=maintenant - 6 * 3600, limite=3
+                    ),
                 )
             )
         return resultat
 
     # ------------------------------------------------------------ estimations
 
-    async def estimations(self, heures: float, maintenant: float | None = None) -> list[EstimationCompte]:
+    async def estimations(
+        self, heures: float, maintenant: float | None = None
+    ) -> list[EstimationCompte]:
         maintenant = maintenant or time.time()
         resultat = []
         for nom in self.comptes:
             r = await self.rythme_compte(nom, maintenant)
-            resultat.append(EstimationCompte(nom, estimer(r, heures) if r else None, self.en_ligne(nom, maintenant)))
+            resultat.append(
+                EstimationCompte(
+                    nom, estimer(r, heures) if r else None, self.en_ligne(nom, maintenant)
+                )
+            )
         return resultat
 
     # ------------------------------------------------------------ stats
@@ -140,12 +154,18 @@ class Services:
         premiere = await self.db.premiere_mission() if periode == "tout" else None
         return bornes_periode(periode, maintenant, self.demarrage, premiere)
 
-    async def stats(self, periode: str, maintenant: float | None = None, comptes: list[str] | None = None) -> list[StatsCompte]:
+    async def stats(
+        self, periode: str, maintenant: float | None = None, comptes: list[str] | None = None
+    ) -> list[StatsCompte]:
         debut, fin = await self.bornes(periode, maintenant)
         resultat = []
         for nom in comptes or self.comptes:
             missions = await self.db.missions(compte=nom, debut=debut, fin=fin, avec_drops=True)
-            resultat.append(stats_compte(nom, missions, debut, fin, self.delai_absence_s(), self.reglages["raretes"]))
+            resultat.append(
+                stats_compte(
+                    nom, missions, debut, fin, self.delai_absence_s(), self.reglages["raretes"]
+                )
+            )
         return resultat
 
     async def drops_rares(
@@ -157,7 +177,9 @@ class Services:
         # On inclut aussi les variantes connues (ex. « Mythical » pour « Mythic »)
         if "Mythic" in voulues:
             voulues.append("Mythical")
-        return await self.db.drops(compte=compte, raretes=voulues, debut=debut, fin=fin, limite=limite)
+        return await self.db.drops(
+            compte=compte, raretes=voulues, debut=debut, fin=fin, limite=limite
+        )
 
     # ------------------------------------------------------------ objectifs
 
@@ -174,15 +196,24 @@ class Services:
             "prestige": derniere.prestige,
         }.get(type_)
 
-    async def taux_objectif(self, compte: str, type_: str, maintenant: float | None = None) -> float | None:
+    async def taux_objectif(
+        self, compte: str, type_: str, maintenant: float | None = None
+    ) -> float | None:
         """Progression par heure sur les 6 dernières heures."""
         maintenant = maintenant or time.time()
         fenetre = 6 * 3600
         missions = await self.missions_pour_rythme(compte, maintenant, fenetre)
         if type_ == "missions":
             return taux_par_heure([(m.horodatage, 1.0) for m in missions], maintenant, fenetre)
-        attribut = {"gems": "gems_total", "gold": "gold_total", "level": "level", "prestige": "prestige"}.get(type_)
+        attribut = {
+            "gems": "gems_total",
+            "gold": "gold_total",
+            "level": "level",
+            "prestige": "prestige",
+        }.get(type_)
         if attribut is None:
             return None
-        points = [(m.horodatage, float(v)) for m in missions if (v := getattr(m, attribut)) is not None]
+        points = [
+            (m.horodatage, float(v)) for m in missions if (v := getattr(m, attribut)) is not None
+        ]
         return taux_total_par_heure(points, maintenant, fenetre)

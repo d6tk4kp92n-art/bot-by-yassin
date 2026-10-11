@@ -15,7 +15,7 @@ from bot.database import DropEnregistre, Objectif
 from bot.moteur_surveillance import Alerte
 from bot.services import TYPES_OBJECTIF, EstimationCompte, EtatCompteResume
 from bot.ui.couleurs import BLEU, GRIS, ORANGE, ROUGE, VERT, couleur_resume
-from bot.ui.format import EMOJI, barre, formater_duree, nombre, ts
+from bot.ui.format import EMOJI, barre, formater_duree, nombre, pluriel, ts
 from bot.ui.limites import securiser_embed
 
 PIED = "Tekkit Watch"
@@ -85,9 +85,13 @@ def _niveau(e: EtatCompteResume) -> str:
     return " · ".join(morceaux)
 
 
-def lignes_compte(e: EtatCompteResume, infos: Sequence[str], periode_min: int, raretes: Sequence[str]) -> list[str]:
+def lignes_compte(
+    e: EtatCompteResume, infos: Sequence[str], periode_min: int, raretes: Sequence[str]
+) -> list[str]:
     """Lignes affichées pour un compte, selon les infos cochées."""
     g, d = e.gains, e.derniere
+    if d is None:
+        return [f"{EMOJI['inconnu']} Jamais vu : aucune mission reçue pour ce compte."]
     lignes = []
     if "connexion" in infos:
         lignes.append(_ligne_connexion(e))
@@ -96,7 +100,7 @@ def lignes_compte(e: EtatCompteResume, infos: Sequence[str], periode_min: int, r
     if "niveau" in infos and _niveau(e):
         lignes.append(f"{EMOJI['niveau']} {_niveau(e)}")
     if "missions" in infos:
-        lignes.append(f"{EMOJI['missions']} {nombre(g.missions)} missions ({periode_min} min)")
+        lignes.append(f"{EMOJI['missions']} {pluriel(g.missions, 'mission')} ({periode_min} min)")
     if "gold" in infos:
         total = f" · total {nombre(d.gold_total)}" if d and d.gold_total is not None else ""
         lignes.append(f"{EMOJI['gold']} +{nombre(g.gold)} gold{total}")
@@ -124,7 +128,7 @@ def lignes_compte(e: EtatCompteResume, infos: Sequence[str], periode_min: int, r
     if "session" in infos:
         s = e.session
         lignes.append(
-            f"🧮 Session : {nombre(s.missions)} missions · {nombre(s.gold)} gold · "
+            f"🧮 Session : {pluriel(s.missions, 'mission')} · {nombre(s.gold)} gold · "
             f"{nombre(s.xp)} XP · {nombre(s.gems)} gems"
         )
     return lignes
@@ -142,14 +146,16 @@ def _total(etats: Sequence[EtatCompteResume], attr: str = "gains") -> Gains:
     return total
 
 
-def lignes_bilan(etats: Sequence[EtatCompteResume], periode_min: int, raretes: Sequence[str]) -> list[str]:
+def lignes_bilan(
+    etats: Sequence[EtatCompteResume], periode_min: int, raretes: Sequence[str]
+) -> list[str]:
     t = _total(etats)
     actifs = sum(1 for e in etats if e.en_ligne)
     gold_h = sum(e.rythme.gold_h for e in etats if e.rythme)
     gems_h = sum(e.rythme.gems_h for e in etats if e.rythme)
     return [
         f"👥 {actifs}/{len(etats)} comptes en ligne",
-        f"{EMOJI['missions']} {nombre(t.missions)} missions · {EMOJI['gold']} {nombre(t.gold)} gold · "
+        f"{EMOJI['missions']} {pluriel(t.missions, 'mission')} · {EMOJI['gold']} {nombre(t.gold)} gold · "
         f"{EMOJI['xp']} {nombre(t.xp)} XP · {EMOJI['gems']} {nombre(t.gems)} gems ({periode_min} min)",
         f"⚡ Rythme actuel : {nombre(gold_h)} gold/h · {nombre(gems_h)} gems/h",
         f"{EMOJI['drops']} {texte_objets(t.objets, raretes)}",
@@ -174,7 +180,9 @@ def embed_resume(
     e = _embed("📋 Résumé du farm", entete, couleur)
 
     if not etats:
-        e.description = entete + "\n\nAucun compte configuré. Ajoute-en avec `/parametres` → 👤 Comptes."
+        e.description = (
+            entete + "\n\nAucun compte configuré. Ajoute-en avec `/parametres` → 👤 Comptes."
+        )
         return securiser_embed(e)
 
     if format_ == "texte":
@@ -188,12 +196,20 @@ def embed_resume(
         e.description = "\n".join(lignes)
     else:
         for et in etats:
-            icone = {True: EMOJI["en_ligne"], False: EMOJI["absent"], None: EMOJI["inconnu"]}[et.en_ligne]
+            icone = {True: EMOJI["en_ligne"], False: EMOJI["absent"], None: EMOJI["inconnu"]}[
+                et.en_ligne
+            ]
             niveau = f" · {_niveau(et)}" if "niveau" in infos and _niveau(et) else ""
-            valeur = "\n".join(lignes_compte(et, [i for i in infos if i != "niveau"], periode_min, raretes))
+            valeur = "\n".join(
+                lignes_compte(et, [i for i in infos if i != "niveau"], periode_min, raretes)
+            )
             e.add_field(name=f"{icone} {et.nom}{niveau}", value=valeur or "—", inline=False)
         if "bilan" in infos:
-            e.add_field(name="📊 Bilan", value="\n".join(lignes_bilan(etats, periode_min, raretes)), inline=False)
+            e.add_field(
+                name="📊 Bilan",
+                value="\n".join(lignes_bilan(etats, periode_min, raretes)),
+                inline=False,
+            )
     e.set_footer(text=f"{PIED} · {'⏸️ en pause' if pause else '👀 surveillance active'}")
     return securiser_embed(e)
 
@@ -218,15 +234,25 @@ def texte_copiable(etats: Sequence[EtatCompteResume], reglages: Mapping[str, Any
         etat = {True: "EN LIGNE", False: "ABSENT", None: "JAMAIS VU"}[e.en_ligne]
         lignes.append(f"{e.nom} [{etat}] zone: {e.zone or '?'}")
         if d is not None:
-            lignes.append(f"  niveau {d.level if d.level is not None else '?'} | prestige {d.prestige if d.prestige is not None else '?'}")
+            lignes.append(
+                f"  niveau {d.level if d.level is not None else '?'} | prestige {d.prestige if d.prestige is not None else '?'}"
+            )
         g = e.gains
-        lignes.append(f"  missions {g.missions} | gold +{nombre(g.gold)} | xp +{nombre(g.xp)} | gems +{nombre(g.gems)}")
-        lignes.append(f"  temps moyen {formater_duree(g.duree_moyenne_s)} | objets {texte_objets(g.objets)}")
+        lignes.append(
+            f"  missions {g.missions} | gold +{nombre(g.gold)} | xp +{nombre(g.xp)} | gems +{nombre(g.gems)}"
+        )
+        lignes.append(
+            f"  temps moyen {formater_duree(g.duree_moyenne_s)} | objets {texte_objets(g.objets)}"
+        )
         if e.estimation:
-            lignes.append(f"  estimation {e.estimation.heures:g} h : ~{nombre(e.estimation.gold)} gold")
+            lignes.append(
+                f"  estimation {e.estimation.heures:g} h : ~{nombre(e.estimation.gold)} gold"
+            )
         lignes.append("")
     t = _total(etats)
-    lignes.append(f"TOTAL : {t.missions} missions | gold +{nombre(t.gold)} | xp +{nombre(t.xp)} | gems +{nombre(t.gems)}")
+    lignes.append(
+        f"TOTAL : {t.missions} missions | gold +{nombre(t.gold)} | xp +{nombre(t.xp)} | gems +{nombre(t.gems)}"
+    )
     texte = "\n".join(lignes).replace(" ", " ")
     if len(texte) > 3900:
         texte = texte[:3890] + "\n…"
@@ -255,9 +281,15 @@ def embed_estimation(heures: float, estimations: Sequence[EstimationCompte]) -> 
     avertissements = []
     for est in estimations:
         if est.en_ligne is False:
-            avertissements.append(f"⚠️ **{est.nom}** est déconnecté : son estimation risque d'être fausse.")
+            avertissements.append(
+                f"⚠️ **{est.nom}** est déconnecté : son estimation risque d'être fausse."
+            )
         if est.estimation is None:
-            e.add_field(name=f"⚪ {est.nom}", value="Pas encore assez de recul (au moins 2 min de données).", inline=True)
+            e.add_field(
+                name=f"⚪ {est.nom}",
+                value="Pas encore assez de recul (au moins 2 min de données).",
+                inline=True,
+            )
             continue
         disponibles.append(est.estimation)
         x = est.estimation
@@ -293,7 +325,7 @@ def valeur_stats(s: StatsCompte, raretes: Sequence[str]) -> str:
         f"{EMOJI['gold']} {nombre(g.gold)} gold (≈ {nombre(s.par_heure(g.gold))}/h)",
         f"{EMOJI['xp']} {nombre(g.xp)} XP (≈ {nombre(s.par_heure(g.xp))}/h)",
         f"{EMOJI['gems']} {nombre(g.gems)} gems (≈ {nombre(s.par_heure(g.gems))}/h)",
-        f"{EMOJI['missions']} {nombre(g.missions)} missions (≈ {nombre(s.par_heure(g.missions))}/h)",
+        f"{EMOJI['missions']} {pluriel(g.missions, 'mission')} (≈ {nombre(s.par_heure(g.missions))}/h)",
         f"{EMOJI['temps']} Temps de jeu : {formater_duree(s.temps_actif_s)} · dispo {s.disponibilite:.0f} %",
         f"{EMOJI['temps']} Moyenne : {formater_duree(g.duree_moyenne_s)} / mission",
     ]
@@ -306,13 +338,21 @@ def valeur_stats(s: StatsCompte, raretes: Sequence[str]) -> str:
     return "\n".join(lignes)
 
 
-def embed_stats(periode: str, debut: float, stats: Sequence[StatsCompte], raretes: Sequence[str]) -> discord.Embed:
+def embed_stats(
+    periode: str, debut: float, stats: Sequence[StatsCompte], raretes: Sequence[str]
+) -> discord.Embed:
     e = _embed(f"📈 Stats · {PERIODES.get(periode, periode)}", f"Depuis {ts(debut, 'f')}", BLEU)
     if not stats:
         e.description = "Aucun compte configuré."
         return securiser_embed(e)
     for s in stats:
-        e.add_field(name=f"👤 {s.compte}", value=valeur_stats(s, raretes) if s.gains.missions else "Aucune mission sur cette période.", inline=False)
+        e.add_field(
+            name=f"👤 {s.compte}",
+            value=valeur_stats(s, raretes)
+            if s.gains.missions
+            else "Aucune mission sur cette période.",
+            inline=False,
+        )
     if len(stats) > 1:
         t = Gains()
         for s in stats:
@@ -337,7 +377,9 @@ def embed_comparer(periode: str, stats: Sequence[StatsCompte]) -> discord.Embed:
         e.description = "Aucun compte configuré."
         return securiser_embed(e)
     largeur = max(6, *(len(s.compte) for s in stats))
-    entete = f"{'Compte':<{largeur}} {'Gold/h':>9} {'XP/h':>8} {'Gems/h':>7} {'Mis/h':>5} {'Dispo':>5}"
+    entete = (
+        f"{'Compte':<{largeur}} {'Gold/h':>9} {'XP/h':>8} {'Gems/h':>7} {'Mis/h':>5} {'Dispo':>5}"
+    )
     lignes = [entete, "-" * len(entete)]
     for s in stats:
         g = s.gains
@@ -357,24 +399,33 @@ def embed_comparer(periode: str, stats: Sequence[StatsCompte]) -> discord.Embed:
             ),
             "🟢 Le plus disponible": max(actifs, key=lambda s: s.disponibilite),
         }
-        e.add_field(name="🏆 Meilleurs", value="\n".join(f"{k} : **{v.compte}**" for k, v in meilleurs.items()), inline=False)
+        e.add_field(
+            name="🏆 Meilleurs",
+            value="\n".join(f"{k} : **{v.compte}**" for k, v in meilleurs.items()),
+            inline=False,
+        )
     return securiser_embed(e)
 
 
 # ---------------------------------------------------------------- drops
 
 
-def pages_drops(drops: Sequence[DropEnregistre], titre: str, par_page: int = 15) -> list[discord.Embed]:
+def pages_drops(
+    drops: Sequence[DropEnregistre], titre: str, par_page: int = 15
+) -> list[discord.Embed]:
     if not drops:
         return [_embed(titre, "Aucun objet trouvé avec ces filtres.", GRIS)]
     pages = []
     for i in range(0, len(drops), par_page):
         lignes = [
-            f"{ts(d.horodatage)} · **{d.compte}** · {d.nom} ({d.rarete})" + (f" ×{d.quantite}" if d.quantite > 1 else "")
+            f"{ts(d.horodatage)} · **{d.compte}** · {d.nom} ({d.rarete})"
+            + (f" ×{d.quantite}" if d.quantite > 1 else "")
             for d in drops[i : i + par_page]
         ]
         e = _embed(titre, "\n".join(lignes), 0x9B59B6)
-        e.set_footer(text=f"{PIED} · page {i // par_page + 1}/{(len(drops) - 1) // par_page + 1} · {len(drops)} objets")
+        e.set_footer(
+            text=f"{PIED} · page {i // par_page + 1}/{(len(drops) - 1) // par_page + 1} · {len(drops)} objets"
+        )
         pages.append(securiser_embed(e))
     return pages
 
@@ -394,9 +445,23 @@ def ligne_objectif(o: Objectif, actuel: int | None, fraction: float, quand: floa
     return texte
 
 
-def embed_rapport(titre: str, stats: Sequence[StatsCompte], records: Sequence[str], raretes: Sequence[str], debut: float) -> discord.Embed:
+def embed_rapport(
+    titre: str,
+    stats: Sequence[StatsCompte],
+    records: Sequence[str],
+    raretes: Sequence[str],
+    debut: float,
+) -> discord.Embed:
     e = _embed(titre, f"Depuis {ts(debut, 'f')}", VERT)
     for s in stats:
-        e.add_field(name=f"👤 {s.compte}", value=valeur_stats(s, raretes) if s.gains.missions else "Aucune mission.", inline=False)
-    e.add_field(name="🏆 Records battus", value="\n".join(records) if records else "Aucun record battu cette fois-ci.", inline=False)
+        e.add_field(
+            name=f"👤 {s.compte}",
+            value=valeur_stats(s, raretes) if s.gains.missions else "Aucune mission.",
+            inline=False,
+        )
+    e.add_field(
+        name="🏆 Records battus",
+        value="\n".join(records) if records else "Aucun record battu cette fois-ci.",
+        inline=False,
+    )
     return securiser_embed(e)

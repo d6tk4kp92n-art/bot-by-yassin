@@ -122,7 +122,9 @@ class MoteurSurveillance:
             if e.derniere_vue is not None and e.derniere_vue >= e.reference:
                 detail = f"Aucune mission depuis <t:{int(e.derniere_vue)}:R>."
             else:
-                detail = f"Pas vu depuis le démarrage de la surveillance (<t:{int(e.reference)}:R>)."
+                detail = (
+                    f"Pas vu depuis le démarrage de la surveillance (<t:{int(e.reference)}:R>)."
+                )
             alertes.append(
                 Alerte(
                     type="disparition",
@@ -158,11 +160,19 @@ class MoteurSurveillance:
             if actif and reglages.get("message_retour", True):
                 absence = ""
                 if e.derniere_vue is not None:
-                    absence = f" après {formater_duree(mission.horodatage - e.derniere_vue)} d'absence"
+                    absence = (
+                        f" après {formater_duree(mission.horodatage - e.derniere_vue)} d'absence"
+                    )
                 alertes.append(
-                    Alerte("retour", e.nom, f"🟢 {e.nom} est de retour",
-                           f"Nouvelle mission reçue{absence}.",
-                           bool(reglages.get("ping_retour", False)), VERT, maintenant)
+                    Alerte(
+                        "retour",
+                        e.nom,
+                        f"🟢 {e.nom} est de retour",
+                        f"Nouvelle mission reçue{absence}.",
+                        bool(reglages.get("ping_retour", False)),
+                        VERT,
+                        maintenant,
+                    )
                 )
         if e.derniere_vue is None or mission.horodatage >= e.derniere_vue:
             e.derniere_vue = mission.horodatage
@@ -173,11 +183,29 @@ class MoteurSurveillance:
             if actif and ancienne is not None and nouvelle is not None and ancienne != nouvelle:
                 ping = bool(reglages.get("ping_zone", True))
                 if nouvelle:
-                    alertes.append(Alerte("zone_retour", e.nom, f"🛡️ {e.nom} est revenu en zone Safe",
-                                          f"Zone : `{e.zone}` → `{mission.zone}`", ping, VERT, maintenant))
+                    alertes.append(
+                        Alerte(
+                            "zone_retour",
+                            e.nom,
+                            f"🛡️ {e.nom} est revenu en zone Safe",
+                            f"Zone : `{e.zone}` → `{mission.zone}`",
+                            ping,
+                            VERT,
+                            maintenant,
+                        )
+                    )
                 else:
-                    alertes.append(Alerte("zone_quitte", e.nom, f"🚨 {e.nom} a quitté la zone Safe",
-                                          f"Zone : `{e.zone}` → `{mission.zone}`", ping, ROUGE, maintenant))
+                    alertes.append(
+                        Alerte(
+                            "zone_quitte",
+                            e.nom,
+                            f"🚨 {e.nom} a quitté la zone Safe",
+                            f"Zone : `{e.zone}` → `{mission.zone}`",
+                            ping,
+                            ROUGE,
+                            maintenant,
+                        )
+                    )
             e.zone = mission.zone
 
         if not actif:
@@ -193,18 +221,39 @@ class MoteurSurveillance:
                 + (f" ×{d.quantite}" if d.quantite > 1 else "")
                 for d in rares
             )
-            alertes.append(Alerte("drop", e.nom, f"✨ Drop rare pour {e.nom} !", lignes,
-                                  bool(reglages.get("ping_drop", True)), VIOLET, maintenant))
+            alertes.append(
+                Alerte(
+                    "drop",
+                    e.nom,
+                    f"✨ Drop rare pour {e.nom} !",
+                    lignes,
+                    bool(reglages.get("ping_drop", True)),
+                    VIOLET,
+                    maintenant,
+                )
+            )
 
         # 4) Anomalies (une seule alerte par type tant qu'elle dure, max 1 / 30 min)
         presentes = {a.type for a in anomalies}
         for type_ in list(e.anomalies):
-            if type_ not in presentes and maintenant - e.anomalies[type_] >= DELAI_REPETITION_ANOMALIE_S:
+            if (
+                type_ not in presentes
+                and maintenant - e.anomalies[type_] >= DELAI_REPETITION_ANOMALIE_S
+            ):
                 del e.anomalies[type_]
         for a in anomalies:
             if a.type in e.anomalies:
                 continue
             e.anomalies[a.type] = maintenant
-            alertes.append(Alerte("anomalie", e.nom, f"⚠️ Anomalie sur {e.nom}", a.texte,
-                                  bool(reglages.get("ping_anomalies", True)), ORANGE, maintenant))
+            alertes.append(
+                Alerte(
+                    "anomalie",
+                    e.nom,
+                    f"⚠️ Anomalie sur {e.nom}",
+                    a.texte,
+                    bool(reglages.get("ping_anomalies", True)),
+                    ORANGE,
+                    maintenant,
+                )
+            )
         return alertes

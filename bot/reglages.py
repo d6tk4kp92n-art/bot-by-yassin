@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import copy
+import re
 from collections.abc import Mapping
 from typing import Any
 
-from bot.config import DEFAUTS, defauts
+from bot.config import DEFAUTS, NB_COMPTES_MAX, defauts
 from bot.database import Database
+
+RE_USERNAME = re.compile(r"^[A-Za-z0-9_]{3,20}$")  # format d'un username Roblox
 
 
 class Reglages(Mapping[str, Any]):
@@ -51,6 +54,13 @@ class Reglages(Mapping[str, Any]):
         """Applique des réglages sauvegardés. Renvoie les clés acceptées."""
         acceptees = []
         for cle, valeur in donnees.items():
+            if cle == "comptes" and isinstance(valeur, list):
+                valeur = [
+                    str(c).strip()
+                    for c in valeur
+                    if isinstance(c, str) and RE_USERNAME.match(c.strip())
+                ]
+                valeur = list(dict.fromkeys(valeur))[:NB_COMPTES_MAX]
             if cle in DEFAUTS and not cle.startswith("_") and _meme_type(valeur, DEFAUTS[cle]):
                 await self.definir(cle, valeur)
                 acceptees.append(cle)

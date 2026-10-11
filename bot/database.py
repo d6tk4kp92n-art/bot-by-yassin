@@ -198,8 +198,19 @@ class Database:
             f"INSERT OR IGNORE INTO missions ({_COLONNES_MISSION}) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
-                m.message_id, m.compte, m.horodatage, m.gold, m.xp, m.gems_gagnes, m.gems_total,
-                m.gold_total, m.level, m.prestige, m.duree_s, m.difficulte, m.zone,
+                m.message_id,
+                m.compte,
+                m.horodatage,
+                m.gold,
+                m.xp,
+                m.gems_gagnes,
+                m.gems_total,
+                m.gold_total,
+                m.level,
+                m.prestige,
+                m.duree_s,
+                m.difficulte,
+                m.zone,
             ),
         )
         nouvelle = cur.rowcount == 1
@@ -208,13 +219,18 @@ class Database:
             await self.db.executemany(
                 "INSERT INTO drops (mission_id, compte, horodatage, nom, rarete, quantite) "
                 "VALUES (?, ?, ?, ?, ?, ?)",
-                [(m.message_id, m.compte, m.horodatage, d.nom, d.rarete, d.quantite) for d in m.drops],
+                [
+                    (m.message_id, m.compte, m.horodatage, d.nom, d.rarete, d.quantite)
+                    for d in m.drops
+                ],
             )
         await self.db.commit()
         return nouvelle
 
     async def mission_existe(self, message_id: int) -> bool:
-        async with self.db.execute("SELECT 1 FROM missions WHERE message_id = ?", (message_id,)) as cur:
+        async with self.db.execute(
+            "SELECT 1 FROM missions WHERE message_id = ?", (message_id,)
+        ) as cur:
             return await cur.fetchone() is not None
 
     async def missions(
@@ -337,14 +353,18 @@ class Database:
 
     # ------------------------------------------------------------ événements
 
-    async def ajouter_evenement(self, compte: str | None, type_: str, texte: str, horodatage: float | None = None) -> None:
+    async def ajouter_evenement(
+        self, compte: str | None, type_: str, texte: str, horodatage: float | None = None
+    ) -> None:
         await self.db.execute(
             "INSERT INTO evenements (compte, type, texte, horodatage) VALUES (?, ?, ?, ?)",
             (compte, type_, texte, horodatage if horodatage is not None else time.time()),
         )
         await self.db.commit()
 
-    async def evenements(self, compte: str | None = None, depuis: float | None = None, limite: int = 10) -> list[Evenement]:
+    async def evenements(
+        self, compte: str | None = None, depuis: float | None = None, limite: int = 10
+    ) -> list[Evenement]:
         conditions, params = [], []
         if compte is not None:
             conditions.append("compte = ? COLLATE NOCASE")
@@ -382,7 +402,8 @@ class Database:
 
     async def effacer_reglages(self, garder_prefixe: str = "_") -> None:
         await self.db.execute(
-            "DELETE FROM reglages WHERE substr(cle, 1, ?) != ?", (len(garder_prefixe), garder_prefixe)
+            "DELETE FROM reglages WHERE substr(cle, 1, ?) != ?",
+            (len(garder_prefixe), garder_prefixe),
         )
         await self.db.commit()
 
@@ -407,7 +428,9 @@ class Database:
             return [Objectif(*r) for r in await cur.fetchall()]
 
     async def objectif_atteint(self, identifiant: int, quand: float) -> None:
-        await self.db.execute("UPDATE objectifs SET atteint_le = ? WHERE id = ?", (quand, identifiant))
+        await self.db.execute(
+            "UPDATE objectifs SET atteint_le = ? WHERE id = ?", (quand, identifiant)
+        )
         await self.db.commit()
 
     async def supprimer_objectif(self, identifiant: int) -> bool:
@@ -440,7 +463,9 @@ class Database:
 
     # ------------------------------------------------------------ OSINT
 
-    async def journaliser_osint(self, utilisateur_id: int, commande: str, cible: str, resultat: str) -> None:
+    async def journaliser_osint(
+        self, utilisateur_id: int, commande: str, cible: str, resultat: str
+    ) -> None:
         await self.db.execute(
             "INSERT INTO osint_journal (utilisateur_id, commande, cible, resultat, horodatage) VALUES (?, ?, ?, ?, ?)",
             (utilisateur_id, commande, cible[:200], resultat[:50], time.time()),

@@ -21,6 +21,7 @@ from bot.config import (
     PALETTE,
     SENSIBILITES,
 )
+from bot.reglages import RE_USERNAME
 from bot.ui.couleurs import BLEU, hex_vers_int, normaliser_hex
 from bot.ui.embeds import embed_erreur, embed_succes
 from bot.ui.format import tronquer
@@ -51,8 +52,14 @@ CATEGORIES: dict[str, tuple[str, str]] = {
     "osint": ("🛡️", "OSINT"),
 }
 
-RE_USERNAME = re.compile(r"^[A-Za-z0-9_]{3,20}$")
 RE_HEURE = re.compile(r"^([01]?\d|2[0-3]):([0-5]\d)$")
+
+
+def champ_texte(modal: discord.ui.Modal, titre: str, **options: Any) -> discord.ui.TextInput:
+    """Ajoute un champ de saisie avec son titre (format des modals de discord.py 2.6+)."""
+    champ: discord.ui.TextInput = discord.ui.TextInput(**options)
+    modal.add_item(discord.ui.Label(text=titre, component=champ))
+    return champ
 
 
 def oui_non(valeur: Any) -> str:
@@ -60,7 +67,9 @@ def oui_non(valeur: Any) -> str:
 
 
 def _embed(titre: str, lignes: list[str]) -> discord.Embed:
-    e = discord.Embed(title=f"⚙️ Paramètres · {titre}", description=tronquer("\n".join(lignes), 4000), color=BLEU)
+    e = discord.Embed(
+        title=f"⚙️ Paramètres · {titre}", description=tronquer("\n".join(lignes), 4000), color=BLEU
+    )
     e.set_footer(text="Tekkit Watch · chaque changement est enregistré immédiatement")
     return e
 
@@ -98,13 +107,17 @@ class VuePanneau(VueBase):
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.auteur_id or not self.bot.est_proprietaire(interaction.user):
-            await repondre(interaction, embed=embed_erreur("🔒 Ce panneau est réservé au propriétaire."))
+            await repondre(
+                interaction, embed=embed_erreur("🔒 Ce panneau est réservé au propriétaire.")
+            )
             return False
         return True
 
     # ------------------------------------------------------------ outils
 
-    async def afficher(self, interaction: discord.Interaction, vue: VuePanneau | None = None) -> None:
+    async def afficher(
+        self, interaction: discord.Interaction, vue: VuePanneau | None = None
+    ) -> None:
         """Affiche une page (ou rafraîchit celle-ci) dans le même message."""
         vue = vue or type(self)(self.bot, self.auteur_id)
         await vue.preparer()
@@ -131,7 +144,9 @@ class VuePanneau(VueBase):
         self.add_item(b)
         return b
 
-    def bascule(self, cle: str, label: str, row: int, apres: Callable[[], Awaitable[None]] | None = None) -> None:
+    def bascule(
+        self, cle: str, label: str, row: int, apres: Callable[[], Awaitable[None]] | None = None
+    ) -> None:
         """Bouton oui/non vert (activé) ou gris (désactivé)."""
         actif = bool(self.r[cle])
 
@@ -164,7 +179,10 @@ class VueAccueil(VuePanneau):
     def construire(self) -> None:
         menu: discord.ui.Select = discord.ui.Select(
             placeholder="📂 Choisis une catégorie…",
-            options=[discord.SelectOption(label=nom, value=cle, emoji=emoji) for cle, (emoji, nom) in CATEGORIES.items()],
+            options=[
+                discord.SelectOption(label=nom, value=cle, emoji=emoji)
+                for cle, (emoji, nom) in CATEGORIES.items()
+            ],
             row=0,
         )
 
@@ -185,7 +203,13 @@ class VueAccueil(VuePanneau):
         )
         self.bouton("Aperçu du résumé", self._apercu, 1, emoji="👁️")
         self.bouton("Exporter", self._exporter, 1, emoji="💾")
-        self.bouton("Tout remettre par défaut", self._reinitialiser, 1, emoji="♻️", style=discord.ButtonStyle.danger)
+        self.bouton(
+            "Tout remettre par défaut",
+            self._reinitialiser,
+            1,
+            emoji="♻️",
+            style=discord.ButtonStyle.danger,
+        )
 
     def embed(self) -> discord.Embed:
         r = self.r
@@ -194,7 +218,11 @@ class VueAccueil(VuePanneau):
             f"**Surveillance** : {'⏸️ en pause' if self.bot.moteur.pause else '▶️ active'}",
             f"👤 **Comptes** ({len(r['comptes'])}/{NB_COMPTES_MAX}) : {comptes}",
             f"⏱️ Alerte après **{r['delai_absence_min']} min** d'absence · résumé "
-            + (f"toutes les **{r['resume_intervalle_min']} min**" if r["resume_auto"] else "**désactivé**"),
+            + (
+                f"toutes les **{r['resume_intervalle_min']} min**"
+                if r["resume_auto"]
+                else "**désactivé**"
+            ),
             f"🎨 Format : {FORMATS_RESUME.get(r['resume_format'], r['resume_format'])} · couleur : `{r['couleur']}`",
             f"🔔 Rareté minimum : **{r['rarete_min']}** · sensibilité : {SENSIBILITES.get(r['sensibilite_anomalies'])}",
             f"📺 Alertes : {_salon(r['salon_alertes'])} · résumés : {_salon(r['salon_resumes'])}",
@@ -213,7 +241,9 @@ class VueAccueil(VuePanneau):
     async def _apercu(self, interaction: discord.Interaction) -> None:
         cog = self.bot.get_cog("Resumes")
         if cog is None:
-            await repondre(interaction, embed=embed_erreur("Le module des résumés n'est pas disponible."))
+            await repondre(
+                interaction, embed=embed_erreur("Le module des résumés n'est pas disponible.")
+            )
             return
         await interaction.response.defer(ephemeral=True, thinking=True)
         await repondre(interaction, embed=await cog.construire())  # type: ignore[attr-defined]
@@ -223,7 +253,10 @@ class VueAccueil(VuePanneau):
         fichier = discord.File(io.BytesIO(donnees), filename="tekkit_reglages.json")
         await repondre(
             interaction,
-            embed=embed_succes("Voici tes réglages. Pour les restaurer : `/parametres importer:<ce fichier>`.", "💾 Sauvegarde"),
+            embed=embed_succes(
+                "Voici tes réglages. Pour les restaurer : `/parametres importer:<ce fichier>`.",
+                "💾 Sauvegarde",
+            ),
             file=fichier,
         )
 
@@ -253,19 +286,23 @@ class VueAccueil(VuePanneau):
 
 
 class ModalCompte(discord.ui.Modal, title="Ajouter un compte"):
-    nom: discord.ui.TextInput = discord.ui.TextInput(
-        label="Username Roblox", placeholder="ex. abslt98", min_length=3, max_length=20
-    )
-
     def __init__(self, page: VuePanneau) -> None:
         super().__init__()
         self.page = page
+        self.nom = champ_texte(
+            self, "Username Roblox", placeholder="ex. abslt98", min_length=3, max_length=20
+        )
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
         nom = self.nom.value.strip()
         comptes = list(self.page.r["comptes"])
         if not RE_USERNAME.match(nom):
-            await repondre(interaction, embed=embed_erreur("Un username Roblox fait 3 à 20 caractères : lettres, chiffres ou _."))
+            await repondre(
+                interaction,
+                embed=embed_erreur(
+                    "Un username Roblox fait 3 à 20 caractères : lettres, chiffres ou _."
+                ),
+            )
             return
         if any(c.casefold() == nom.casefold() for c in comptes):
             await repondre(interaction, embed=embed_erreur(f"`{nom}` est déjà dans la liste."))
@@ -286,7 +323,9 @@ class VueComptes(VuePanneau):
         async def ajouter(interaction: discord.Interaction) -> None:
             await interaction.response.send_modal(ModalCompte(self))
 
-        bouton = self.bouton("Ajouter un compte", ajouter, 0, emoji="➕", style=discord.ButtonStyle.success)
+        bouton = self.bouton(
+            "Ajouter un compte", ajouter, 0, emoji="➕", style=discord.ButtonStyle.success
+        )
         bouton.disabled = len(self.r["comptes"]) >= NB_COMPTES_MAX
         self.retour(0)
         comptes = list(self.r["comptes"])
@@ -310,7 +349,10 @@ class VueComptes(VuePanneau):
     def embed(self) -> discord.Embed:
         comptes = self.r["comptes"]
         lignes = [f"`{i + 1}.` 👤 **{c}**" for i, c in enumerate(comptes)] or ["Aucun compte."]
-        lignes += ["", f"{len(comptes)}/{NB_COMPTES_MAX} comptes. Le nom doit être **exactement** celui du webhook."]
+        lignes += [
+            "",
+            f"{len(comptes)}/{NB_COMPTES_MAX} comptes. Le nom doit être **exactement** celui du webhook.",
+        ]
         return _embed(self.titre, lignes)
 
 
@@ -332,13 +374,36 @@ class ModalTemps(discord.ui.Modal, title="Réglages de temps"):
         super().__init__()
         self.page = page
         r = page.r
-        self.intervalle = discord.ui.TextInput(label="Résumé toutes les ... min (1 à 60)", default=str(r["resume_intervalle_min"]), max_length=2)
-        self.delai = discord.ui.TextInput(label="Alerte absence après ... min (1 à 120)", default=str(r["delai_absence_min"]), max_length=3)
-        self.periode = discord.ui.TextInput(label="Période des gains en min (5 à 1440)", default=str(r["periode_gains_min"]), max_length=4)
-        self.estimation = discord.ui.TextInput(label="Durée d'estimation en h (1 à 48)", default=str(r["estimation_heures"]), max_length=2)
-        self.heure = discord.ui.TextInput(label="Heure du rapport quotidien (HH:MM)", default=str(r["rapport_heure"]), max_length=5)
-        for champ in (self.intervalle, self.delai, self.periode, self.estimation, self.heure):
-            self.add_item(champ)
+        self.intervalle = champ_texte(
+            self,
+            "Résumé toutes les ... min (1 à 60)",
+            default=str(r["resume_intervalle_min"]),
+            max_length=2,
+        )
+        self.delai = champ_texte(
+            self,
+            "Alerte absence après ... min (1 à 120)",
+            default=str(r["delai_absence_min"]),
+            max_length=3,
+        )
+        self.periode = champ_texte(
+            self,
+            "Période des gains en min (5 à 1440)",
+            default=str(r["periode_gains_min"]),
+            max_length=4,
+        )
+        self.estimation = champ_texte(
+            self,
+            "Durée d'estimation en h (1 à 48)",
+            default=str(r["estimation_heures"]),
+            max_length=2,
+        )
+        self.heure = champ_texte(
+            self,
+            "Heure du rapport quotidien (HH:MM)",
+            default=str(r["rapport_heure"]),
+            max_length=5,
+        )
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
         try:
@@ -364,8 +429,12 @@ class ModalConservation(discord.ui.Modal, title="Conservation des données"):
     def __init__(self, page: VuePanneau) -> None:
         super().__init__()
         self.page = page
-        self.jours = discord.ui.TextInput(label="Garder les données ... jours (7 à 3650)", default=str(page.r["purge_jours"]), max_length=4)
-        self.add_item(self.jours)
+        self.jours = champ_texte(
+            self,
+            "Garder les données ... jours (7 à 3650)",
+            default=str(page.r["purge_jours"]),
+            max_length=4,
+        )
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
         try:
@@ -396,15 +465,18 @@ class VueTemps(VuePanneau):
 
     def embed(self) -> discord.Embed:
         r = self.r
-        return _embed(self.titre, [
-            f"📋 Résumé automatique : {oui_non(r['resume_auto'])} toutes les **{r['resume_intervalle_min']} min**",
-            f"🔴 Alerte de disparition après **{r['delai_absence_min']} min**",
-            f"📊 Période des gains dans le résumé : **{r['periode_gains_min']} min**",
-            f"🔮 Durée d'estimation : **{r['estimation_heures']} h**",
-            f"🌙 Rapport du jour : {oui_non(r['rapport_quotidien'])} à **{r['rapport_heure']}** · "
-            f"rapport de la semaine (dimanche) : {oui_non(r['rapport_hebdo'])}",
-            f"🗑️ Données gardées **{r['purge_jours']} jours**",
-        ])
+        return _embed(
+            self.titre,
+            [
+                f"📋 Résumé automatique : {oui_non(r['resume_auto'])} toutes les **{r['resume_intervalle_min']} min**",
+                f"🔴 Alerte de disparition après **{r['delai_absence_min']} min**",
+                f"📊 Période des gains dans le résumé : **{r['periode_gains_min']} min**",
+                f"🔮 Durée d'estimation : **{r['estimation_heures']} h**",
+                f"🌙 Rapport du jour : {oui_non(r['rapport_quotidien'])} à **{r['rapport_heure']}** · "
+                f"rapport de la semaine (dimanche) : {oui_non(r['rapport_hebdo'])}",
+                f"🗑️ Données gardées **{r['purge_jours']} jours**",
+            ],
+        )
 
 
 # ====================================================================== infos
@@ -437,7 +509,10 @@ class VueInfos(VuePanneau):
 
     def embed(self) -> discord.Embed:
         cochees = set(self.r["resume_infos"])
-        return _embed(self.titre, [f"{oui_non(c in cochees)} {libelle}" for c, libelle in INFOS_RESUME.items()])
+        return _embed(
+            self.titre,
+            [f"{oui_non(c in cochees)} {libelle}" for c, libelle in INFOS_RESUME.items()],
+        )
 
 
 # ====================================================================== apparence
@@ -448,13 +523,16 @@ class ModalCouleur(discord.ui.Modal, title="Couleur personnalisée"):
         super().__init__()
         self.page = page
         actuelle = page.r["couleur"] if page.r["couleur"] != "auto" else "#5865F2"
-        self.code = discord.ui.TextInput(label="Code couleur (ex. #5865F2)", default=actuelle, min_length=6, max_length=7)
-        self.add_item(self.code)
+        self.code = champ_texte(
+            self, "Code couleur (ex. #5865F2)", default=actuelle, min_length=6, max_length=7
+        )
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
         code = normaliser_hex(self.code.value)
         if code is None:
-            await repondre(interaction, embed=embed_erreur("Code invalide. Exemple valide : `#5865F2`."))
+            await repondre(
+                interaction, embed=embed_erreur("Code invalide. Exemple valide : `#5865F2`.")
+            )
             return
         await self.page.r.definir("couleur", code)
         await self.page.afficher(interaction)
@@ -467,7 +545,10 @@ class VueApparence(VuePanneau):
         r = self.r
         formats: discord.ui.Select = discord.ui.Select(
             placeholder="Format du résumé",
-            options=[discord.SelectOption(label=v, value=k, default=k == r["resume_format"]) for k, v in FORMATS_RESUME.items()],
+            options=[
+                discord.SelectOption(label=v, value=k, default=k == r["resume_format"])
+                for k, v in FORMATS_RESUME.items()
+            ],
             row=0,
         )
 
@@ -478,10 +559,19 @@ class VueApparence(VuePanneau):
         formats.callback = choisir_format  # type: ignore[method-assign]
         self.add_item(formats)
 
-        options = [discord.SelectOption(label=nom, value=code, default=code == r["couleur"]) for code, nom in PALETTE.items()]
+        options = [
+            discord.SelectOption(label=nom, value=code, default=code == r["couleur"])
+            for code, nom in PALETTE.items()
+        ]
         if r["couleur"] not in PALETTE:
-            options.append(discord.SelectOption(label=f"Perso {r['couleur']}", value=r["couleur"], default=True))
-        couleurs: discord.ui.Select = discord.ui.Select(placeholder="Couleur du résumé", options=options[:25], row=1)
+            options.append(
+                discord.SelectOption(
+                    label=f"Perso {r['couleur']}", value=r["couleur"], default=True
+                )
+            )
+        couleurs: discord.ui.Select = discord.ui.Select(
+            placeholder="Couleur du résumé", options=options[:25], row=1
+        )
 
         async def choisir_couleur(interaction: discord.Interaction) -> None:
             await self.r.definir("couleur", couleurs.values[0])
@@ -502,13 +592,16 @@ class VueApparence(VuePanneau):
     def embed(self) -> discord.Embed:
         r = self.r
         couleur = r["couleur"]
-        e = _embed(self.titre, [
-            f"🖼️ Format : **{FORMATS_RESUME.get(r['resume_format'])}**",
-            f"🎨 Couleur : **{PALETTE.get(couleur, couleur)}** (`{couleur}`)",
-            f"🔘 Boutons sous le résumé : {oui_non(r['resume_boutons'])}",
-            f"🗑️ Supprimer l'ancien résumé : {oui_non(r['resume_supprimer_ancien'])}",
-            f"🔔 Mention dans le résumé auto : {oui_non(r['resume_ping'])}",
-        ])
+        e = _embed(
+            self.titre,
+            [
+                f"🖼️ Format : **{FORMATS_RESUME.get(r['resume_format'])}**",
+                f"🎨 Couleur : **{PALETTE.get(couleur, couleur)}** (`{couleur}`)",
+                f"🔘 Boutons sous le résumé : {oui_non(r['resume_boutons'])}",
+                f"🗑️ Supprimer l'ancien résumé : {oui_non(r['resume_supprimer_ancien'])}",
+                f"🔔 Mention dans le résumé auto : {oui_non(r['resume_ping'])}",
+            ],
+        )
         if couleur != "auto":
             e.color = hex_vers_int(couleur) or BLEU
         return e
@@ -526,7 +619,9 @@ class VueAlertes(VuePanneau):
             placeholder="Coche les alertes / mentions voulues…",
             min_values=0,
             max_values=len(PINGS),
-            options=[discord.SelectOption(label=v, value=k, default=bool(r[k])) for k, v in PINGS.items()],
+            options=[
+                discord.SelectOption(label=v, value=k, default=bool(r[k])) for k, v in PINGS.items()
+            ],
             row=0,
         )
 
@@ -602,7 +697,9 @@ class VueSalons(VuePanneau):
             placeholder="📋 Salon des résumés…", channel_types=types, row=1
         )
 
-        def fabrique(menu: discord.ui.ChannelSelect, cle: str) -> Callable[[discord.Interaction], Awaitable[None]]:
+        def fabrique(
+            menu: discord.ui.ChannelSelect, cle: str
+        ) -> Callable[[discord.Interaction], Awaitable[None]]:
             async def choisir(interaction: discord.Interaction) -> None:
                 salon = menu.values[0]
                 await self.r.definir(cle, int(salon.id))
@@ -625,12 +722,15 @@ class VueSalons(VuePanneau):
 
     def embed(self) -> discord.Embed:
         r = self.r
-        return _embed(self.titre, [
-            f"📢 Alertes : {_salon(r['salon_alertes'])}",
-            f"📋 Résumés et rapports : {_salon(r['salon_resumes'])}",
-            "",
-            "Le bot doit pouvoir **voir** et **écrire** dans ces salons.",
-        ])
+        return _embed(
+            self.titre,
+            [
+                f"📢 Alertes : {_salon(r['salon_alertes'])}",
+                f"📋 Résumés et rapports : {_salon(r['salon_resumes'])}",
+                "",
+                "Le bot doit pouvoir **voir** et **écrire** dans ces salons.",
+            ],
+        )
 
 
 # ====================================================================== IA
@@ -641,11 +741,21 @@ class ModalIA(discord.ui.Modal, title="IA : réglages avancés"):
         super().__init__()
         self.page = page
         r = page.r
-        self.keep_alive = discord.ui.TextInput(label="Décharger le modèle après ... min (1 à 60)", default=str(r["ia_keep_alive_min"]), max_length=2)
-        self.limite = discord.ui.TextInput(label="Questions max par minute (1 à 30)", default=str(r["ia_limite_minute"]), max_length=2)
-        self.memoire = discord.ui.TextInput(label="Mémoire : derniers échanges (0 à 20)", default=str(r["ia_memoire"]), max_length=2)
-        for champ in (self.keep_alive, self.limite, self.memoire):
-            self.add_item(champ)
+        self.keep_alive = champ_texte(
+            self,
+            "Décharger le modèle après ... min (1 à 60)",
+            default=str(r["ia_keep_alive_min"]),
+            max_length=2,
+        )
+        self.limite = champ_texte(
+            self,
+            "Questions max par minute (1 à 30)",
+            default=str(r["ia_limite_minute"]),
+            max_length=2,
+        )
+        self.memoire = champ_texte(
+            self, "Mémoire : derniers échanges (0 à 20)", default=str(r["ia_memoire"]), max_length=2
+        )
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
         try:
@@ -696,7 +806,9 @@ class VueIA(VuePanneau):
         self.bouton("Avancé", avance, 0, emoji="⚙️")
         self.retour(0)
 
-        noms = list(dict.fromkeys([r["ia_modele"], *self.modeles, MODELE_IA_DEFAUT, MODELE_IA_LEGER]))[:25]
+        noms = list(
+            dict.fromkeys([r["ia_modele"], *self.modeles, MODELE_IA_DEFAUT, MODELE_IA_LEGER])
+        )[:25]
         modeles: discord.ui.Select = discord.ui.Select(
             placeholder="Modèle Ollama",
             options=[
@@ -720,7 +832,10 @@ class VueIA(VuePanneau):
 
         modes: discord.ui.Select = discord.ui.Select(
             placeholder="Mode",
-            options=[discord.SelectOption(label=v, value=k, default=k == r["ia_mode"]) for k, v in MODES_IA.items()],
+            options=[
+                discord.SelectOption(label=v, value=k, default=k == r["ia_mode"])
+                for k, v in MODES_IA.items()
+            ],
             row=2,
         )
 
@@ -753,7 +868,8 @@ class VueIA(VuePanneau):
         autorises = ", ".join(f"<@{u}>" for u in r["ia_utilisateurs"]) or "toi uniquement"
         lignes = [
             f"🤖 IA : {oui_non(r['ia_active'])}",
-            f"🧠 Modèle : `{r['ia_modele']}` " + ("✅ installé" if installe else "⚠️ pas trouvé dans Ollama"),
+            f"🧠 Modèle : `{r['ia_modele']}` "
+            + ("✅ installé" if installe else "⚠️ pas trouvé dans Ollama"),
             f"⚡ Mode : **{MODES_IA.get(r['ia_mode'])}**",
             f"💤 Déchargé de la mémoire après **{r['ia_keep_alive_min']} min** sans question",
             f"🚦 Max **{r['ia_limite_minute']}** questions / min / personne · mémoire : **{r['ia_memoire']}** échanges",
@@ -784,12 +900,15 @@ class VueOSINT(VuePanneau):
         self.retour(0)
 
     def embed(self) -> discord.Embed:
-        return _embed(self.titre, [
-            f"🛡️ Commandes OSINT : {oui_non(self.r['osint_active'])}",
-            "",
-            "Uniquement : domaines, adresses IP, liens, entreprises (BCE), tes propres mots de passe et images.",
-            "Jamais de recherche sur des personnes privées. Chaque recherche est notée dans le journal.",
-        ])
+        return _embed(
+            self.titre,
+            [
+                f"🛡️ Commandes OSINT : {oui_non(self.r['osint_active'])}",
+                "",
+                "Uniquement : domaines, adresses IP, liens, entreprises (BCE), tes propres mots de passe et images.",
+                "Jamais de recherche sur des personnes privées. Chaque recherche est notée dans le journal.",
+            ],
+        )
 
 
 PAGES: dict[str, type[VuePanneau]] = {

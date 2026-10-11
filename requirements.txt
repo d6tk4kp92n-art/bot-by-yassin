@@ -1,5 +1,5 @@
 # Bot Discord
-discord.py>=2.4,<3
+discord.py>=2.6,<3
 # Base de données asynchrone
 aiosqlite>=0.20
 # Lecture du fichier .env

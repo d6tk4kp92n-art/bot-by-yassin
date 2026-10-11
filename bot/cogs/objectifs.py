@@ -43,7 +43,9 @@ class Objectifs(commands.GroupCog, group_name="objectif", group_description="Obj
         return ligne_objectif(o, actuel, fraction, quand)
 
     @app_commands.command(name="ajouter", description="Ajoute un objectif (ex. 100 000 gems)")
-    @app_commands.describe(compte="Compte concerné", type="Type d'objectif", valeur="Valeur à atteindre")
+    @app_commands.describe(
+        compte="Compte concerné", type="Type d'objectif", valeur="Valeur à atteindre"
+    )
     @app_commands.choices(type=CHOIX_TYPE)
     @app_commands.autocomplete(compte=autocomplete_compte)
     async def ajouter(
@@ -53,26 +55,48 @@ class Objectifs(commands.GroupCog, group_name="objectif", group_description="Obj
         type: app_commands.Choice[str],
         valeur: app_commands.Range[int, 1, 2_000_000_000],
     ) -> None:
-        nom = next((c for c in self.bot.reglages["comptes"] if c.casefold() == compte.strip().casefold()), None)
+        nom = next(
+            (c for c in self.bot.reglages["comptes"] if c.casefold() == compte.strip().casefold()),
+            None,
+        )
         if nom is None:
-            await repondre(interaction, embed=embed_erreur(f"Le compte « {compte} » n'est pas surveillé."))
+            await repondre(
+                interaction, embed=embed_erreur(f"Le compte « {compte} » n'est pas surveillé.")
+            )
             return
         actuel = await self.bot.services.valeur_actuelle(nom, type.value) or 0
         if actuel >= valeur:
-            await repondre(interaction, embed=embed_info("🎉 Déjà atteint", f"**{nom}** a déjà {nombre(actuel)} ({type.name})."))
+            await repondre(
+                interaction,
+                embed=embed_info(
+                    "🎉 Déjà atteint", f"**{nom}** a déjà {nombre(actuel)} ({type.name})."
+                ),
+            )
             return
         identifiant = await self.bot.db.ajouter_objectif(nom, type.value, int(valeur), int(actuel))
-        objectif = Objectif(identifiant, nom, type.value, int(valeur), int(actuel), time.time(), None)
-        await repondre(interaction, embed=embed_succes(await self._ligne(objectif), "🎯 Objectif ajouté"))
+        objectif = Objectif(
+            identifiant, nom, type.value, int(valeur), int(actuel), time.time(), None
+        )
+        await repondre(
+            interaction, embed=embed_succes(await self._ligne(objectif), "🎯 Objectif ajouté")
+        )
 
     @app_commands.command(name="liste", description="Affiche les objectifs et leur progression")
     async def liste(self, interaction: discord.Interaction) -> None:
         objectifs = await self.bot.db.objectifs()
         if not objectifs:
-            await repondre(interaction, embed=embed_info("🎯 Objectifs", "Aucun objectif. Ajoute-en un avec `/objectif ajouter`."))
+            await repondre(
+                interaction,
+                embed=embed_info(
+                    "🎯 Objectifs", "Aucun objectif. Ajoute-en un avec `/objectif ajouter`."
+                ),
+            )
             return
         lignes = [await self._ligne(o) for o in objectifs]
-        pages = [embed_info("🎯 Objectifs", "\n\n".join(lignes[i : i + 6])) for i in range(0, len(lignes), 6)]
+        pages = [
+            embed_info("🎯 Objectifs", "\n\n".join(lignes[i : i + 6]))
+            for i in range(0, len(lignes), 6)
+        ]
         await envoyer_pages(interaction, pages)
 
     @app_commands.command(name="supprimer", description="Supprime un objectif")

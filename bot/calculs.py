@@ -127,11 +127,15 @@ def rythme(
     missions_h = taux_par_heure([(m.horodatage, 1.0) for m in triees], maintenant, fenetre_s)
     if missions_h is None:
         return None
-    gold_h = taux_par_heure([(m.horodatage, float(m.gold or 0)) for m in triees], maintenant, fenetre_s)
+    gold_h = taux_par_heure(
+        [(m.horodatage, float(m.gold or 0)) for m in triees], maintenant, fenetre_s
+    )
     xp_h = taux_par_heure([(m.horodatage, float(m.xp or 0)) for m in triees], maintenant, fenetre_s)
     gems = [(m.horodatage, float(m.gems_total)) for m in triees if m.gems_total is not None]
     gems_h = taux_total_par_heure(gems, maintenant, fenetre_s) if gems else 0.0
-    return Rythme(gold_h=gold_h or 0.0, xp_h=xp_h or 0.0, gems_h=gems_h or 0.0, missions_h=missions_h)
+    return Rythme(
+        gold_h=gold_h or 0.0, xp_h=xp_h or 0.0, gems_h=gems_h or 0.0, missions_h=missions_h
+    )
 
 
 @dataclass
@@ -335,7 +339,9 @@ def detecter_anomalies(missions: Sequence[Mission], sensibilite: str = "normale"
         gagne = sum(m.gold or 0 for m in dernieres[1:])
         if tous_connus and len(totaux) == 1 and gagne > 0:
             resultat.append(
-                Anomalie("bloque", f"Les totaux ne bougent plus depuis {n} missions (compte bloqué ?)")
+                Anomalie(
+                    "bloque", f"Les totaux ne bougent plus depuis {n} missions (compte bloqué ?)"
+                )
             )
     return resultat
 
@@ -343,7 +349,9 @@ def detecter_anomalies(missions: Sequence[Mission], sensibilite: str = "normale"
 # ---------------------------------------------------------------- Objectifs
 
 
-def date_atteinte(actuel: float, cible: float, taux_h: float | None, maintenant: float) -> float | None:
+def date_atteinte(
+    actuel: float, cible: float, taux_h: float | None, maintenant: float
+) -> float | None:
     """Horodatage estimé où l'objectif sera atteint. None si impossible à estimer."""
     if actuel >= cible:
         return maintenant
@@ -405,7 +413,9 @@ def bornes_periode(
     if periode == "session":
         return demarrage, maintenant
     if periode == "aujourdhui":
-        minuit = datetime.fromtimestamp(maintenant, FUSEAU).replace(hour=0, minute=0, second=0, microsecond=0)
+        minuit = datetime.fromtimestamp(maintenant, FUSEAU).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
         return minuit.timestamp(), maintenant
     if periode == "7j":
         return maintenant - 7 * 86400, maintenant

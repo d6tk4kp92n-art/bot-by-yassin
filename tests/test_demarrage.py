@@ -6,39 +6,59 @@ import pytest
 from discord import app_commands
 
 from bot.config import Config
-from bot.main import COGS, FiltreSecrets, TekkitBot
-
-FAUX_TOKEN = "MTIzNDU2Nzg5MDEyMzQ1Njc4.faux.token_de_test_qui_ne_marche_pas"
-
-
-@pytest.fixture
-async def bot(tmp_path):
-    config = Config(token=FAUX_TOKEN, owner_id=111, webhook_channel_id=222, virustotal_key="vt-secret-123456")
-    b = TekkitBot(config, chemin_base=tmp_path / "test.db")
-    async with b:  # initialise le client sans se connecter à Discord
-        await b.preparer()
-        yield b
-        for nom in list(b.extensions):
-            await b.unload_extension(nom)
+from bot.main import COGS, FiltreSecrets
+from tests.conftest import FAUX_TOKEN
 
 
 async def test_tous_les_modules_se_chargent(bot):
     assert bot.cogs_en_erreur == {}
     assert set(bot.extensions) == set(COGS)
-    for nom in ("Surveillance", "Resumes", "Stats", "Objectifs", "Parametres", "General", "IA", "OSINT"):
+    for nom in (
+        "Surveillance",
+        "Resumes",
+        "Stats",
+        "Objectifs",
+        "Parametres",
+        "General",
+        "IA",
+        "OSINT",
+    ):
         assert bot.get_cog(nom) is not None, nom
 
 
 async def test_commandes_slash_enregistrees(bot):
     noms = {c.name for c in bot.tree.get_commands()}
     attendues = {
-        "resume", "résumé", "estimation", "stats", "graphique", "drops", "comparer", "export",
-        "objectif", "parametres", "aide", "sync", "pause", "ia", "ia-generer", "ia-statut", "osint",
+        "resume",
+        "résumé",
+        "estimation",
+        "stats",
+        "graphique",
+        "drops",
+        "comparer",
+        "export",
+        "objectif",
+        "parametres",
+        "aide",
+        "sync",
+        "pause",
+        "ia",
+        "ia-generer",
+        "ia-statut",
+        "osint",
     }
     assert attendues <= noms
     osint = bot.tree.get_command("osint")
     assert isinstance(osint, app_commands.Group)
-    assert {c.name for c in osint.commands} == {"domaine", "ip", "lien", "entreprise", "motdepasse", "image"}
+    assert {c.name for c in osint.commands} == {
+        "domaine",
+        "ip",
+        "lien",
+        "entreprise",
+        "motdepasse",
+        "image",
+    }
+
     # Toutes les commandes respectent les limites Discord (noms ≤ 32, descriptions ≤ 100)
     def toutes(commandes):
         for c in commandes:
@@ -81,5 +101,58 @@ def test_config_explique_ce_qui_manque(tmp_path, monkeypatch):
     env.write_text("DISCORD_TOKEN=x\nOWNER_ID=1\nWEBHOOK_CHANNEL_ID=2\n", encoding="utf-8")
     monkeypatch.delenv("OWNER_ID", raising=False)
     c = Config.depuis_env(env)
-    assert c.owner_id == 1 and c.webhook_channel_id == 2 and c.ollama_url == "http://localhost:11434"
+    assert (
+        c.owner_id == 1 and c.webhook_channel_id == 2 and c.ollama_url == "http://localhost:11434"
+    )
     assert c.virustotal_key is None
+
+
+async def test_sync_annonce_et_rattrapage(bot):
+    """Démarrage complet simulé : sync des commandes, « Surveillance lancée », rattrapage de l'historique."""
+    from datetime import UTC, datetime
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    import discord
+
+    from tests.conftest import SALON_WEBHOOK, embed_exemple
+
+    envois = []
+
+    class FauxSalon:
+        id = SALON_WEBHOOK
+        guild = SimpleNamespace(id=1, name="Mon serveur")
+
+        async def send(self, content=None, **kw):
+            envois.append(content)
+
+        async def history(self, limit=100):
+            for i in (3, 2, 1):  # du plus récent au plus ancien, comme Discord
+                yield SimpleNamespace(
+                    id=500 + i,
+                    created_at=datetime.fromtimestamp(1_700_000_000 + i * 60, UTC),
+                    embeds=[discord.Embed.from_dict(embed_exemple(user="abslt98"))],
+                )
+
+    salon = FauxSalon()
+    bot.get_channel = lambda _id: salon
+    bot.tree.sync = AsyncMock(return_value=[object()] * 20)
+    bot.tree.copy_global_to = lambda guild: None
+    assert await bot.synchroniser_commandes() == 20
+
+    bot.change_presence = AsyncMock()
+    await bot.on_ready()
+    assert any("Surveillance lancée" in (c or "") for c in envois)
+    bot.change_presence.assert_awaited()
+    assert "Surveille 2 comptes" in bot.change_presence.await_args.kwargs["activity"].name
+
+    await bot.get_cog("Surveillance").rattraper()
+    missions = await bot.db.missions()
+    assert [m.message_id for m in missions] == [501, 502, 503]  # ordre chronologique
+    assert bot.moteur.etat("abslt98").derniere_vue == missions[-1].horodatage
+    # Un salon introuvable ne fait pas planter : 0 commande et un message clair dans les logs
+    bot.get_channel = lambda _id: None
+    bot.fetch_channel = AsyncMock(
+        side_effect=discord.NotFound(SimpleNamespace(status=404, reason="x"), "inconnu")
+    )
+    assert await bot.synchroniser_commandes() == 0

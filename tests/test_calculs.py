@@ -18,10 +18,20 @@ from bot.calculs import (
 from bot.parser import Drop, Mission
 
 
-def missions_regulieres(debut: float, n: int, pas: float = 60, gold: int = 3000, **kw) -> list[Mission]:
+def missions_regulieres(
+    debut: float, n: int, pas: float = 60, gold: int = 3000, **kw
+) -> list[Mission]:
     return [
-        Mission(message_id=i, compte="a", horodatage=debut + i * pas, gold=gold, xp=1000,
-                gems_total=1000 + i * 10, duree_s=60, **kw)
+        Mission(
+            message_id=i,
+            compte="a",
+            horodatage=debut + i * pas,
+            gold=gold,
+            xp=1000,
+            gems_total=1000 + i * 10,
+            duree_s=60,
+            **kw,
+        )
         for i in range(n)
     ]
 
@@ -156,9 +166,16 @@ def test_bornes_periode():
 def test_records_battus():
     from bot.calculs import records_battus
 
-    avant = [Mission(message_id=i, compte="a", horodatage=i * 60, gold=1000, duree_s=70) for i in range(10)]
-    periode = [Mission(message_id=100 + i, compte="a", horodatage=86400 * 2 + i * 60, gold=1500, duree_s=60)
-               for i in range(20)]
+    avant = [
+        Mission(message_id=i, compte="a", horodatage=i * 60, gold=1000, duree_s=70)
+        for i in range(10)
+    ]
+    periode = [
+        Mission(
+            message_id=100 + i, compte="a", horodatage=86400 * 2 + i * 60, gold=1500, duree_s=60
+        )
+        for i in range(20)
+    ]
     records = records_battus("a", periode, avant)
     assert len(records) == 3
     assert records_battus("a", periode, []) == []

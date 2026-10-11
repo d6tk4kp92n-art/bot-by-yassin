@@ -17,6 +17,7 @@ from bot.ui.couleurs import BLEU, ORANGE, ROUGE, VERT
 from bot.ui.embeds import embed_attention, embed_erreur, embed_info
 from bot.ui.format import tronquer, ts
 from bot.ui.limites import securiser_embed
+from bot.ui.panneau import champ_texte
 from bot.ui.vues import VueBase, envoyer_pages, repondre
 
 if TYPE_CHECKING:
@@ -37,16 +38,16 @@ def embed_resultat(r: Resultat) -> discord.Embed:
 
 
 class ModalMotDePasse(discord.ui.Modal, title="Vérifier un de MES mots de passe"):
-    mot_de_passe: discord.ui.TextInput = discord.ui.TextInput(
-        label="Mot de passe (jamais stocké ni envoyé)",
-        placeholder="Seuls 5 caractères de son empreinte SHA-1 quittent le PC",
-        min_length=1,
-        max_length=256,
-    )
-
     def __init__(self, cog: OSINT) -> None:
         super().__init__(timeout=300)
         self.cog = cog
+        self.mot_de_passe = champ_texte(
+            self,
+            "Mot de passe (jamais stocké ni envoyé)",
+            placeholder="Seuls 5 caractères de son empreinte SHA-1 quittent le PC",
+            min_length=1,
+            max_length=256,
+        )
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer(ephemeral=True, thinking=True)
@@ -57,7 +58,12 @@ class ModalMotDePasse(discord.ui.Modal, title="Vérifier un de MES mots de passe
             # On ne journalise JAMAIS le mot de passe : seulement le type d'erreur
             log.warning("Vérification de mot de passe impossible (%s)", type(exc).__name__)
             await self.cog.journaliser(interaction, "motdepasse", "(masqué)", "erreur")
-            await repondre(interaction, embed=embed_erreur("Le service Have I Been Pwned ne répond pas. Réessaie plus tard."))
+            await repondre(
+                interaction,
+                embed=embed_erreur(
+                    "Le service Have I Been Pwned ne répond pas. Réessaie plus tard."
+                ),
+            )
             return
         finally:
             del valeur
@@ -79,7 +85,9 @@ class VueImage(VueBase):
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         return interaction.user.id == self.auteur_id
 
-    @discord.ui.button(label="Renvoyer l'image nettoyée", emoji="🧼", style=discord.ButtonStyle.success)
+    @discord.ui.button(
+        label="Renvoyer l'image nettoyée", emoji="🧼", style=discord.ButtonStyle.success
+    )
     async def nettoyer(self, interaction: discord.Interaction, bouton: discord.ui.Button) -> None:
         await interaction.response.defer(ephemeral=True, thinking=True)
         try:
@@ -91,12 +99,18 @@ class VueImage(VueBase):
         base = self.nom.rsplit(".", 1)[0][:50] or "image"
         fichier = discord.File(io.BytesIO(propre), filename=f"{base}_nettoyee.{extension}")
         bouton.disabled = True
-        await repondre(interaction, embed=embed_info("🧼 Image nettoyée", "Plus aucune métadonnée (EXIF, GPS, XMP)."), file=fichier)
+        await repondre(
+            interaction,
+            embed=embed_info("🧼 Image nettoyée", "Plus aucune métadonnée (EXIF, GPS, XMP)."),
+            file=fichier,
+        )
         self.donnees = b""
         self.stop()
 
 
-class OSINT(commands.GroupCog, group_name="osint", group_description="Outils OSINT légaux (propriétaire)"):
+class OSINT(
+    commands.GroupCog, group_name="osint", group_description="Outils OSINT légaux (propriétaire)"
+):
     def __init__(self, bot: TekkitBot) -> None:
         self.bot = bot
         self.http = Http()
@@ -108,20 +122,28 @@ class OSINT(commands.GroupCog, group_name="osint", group_description="Outils OSI
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if not self.bot.est_proprietaire(interaction.user):
-            raise app_commands.CheckFailure("🔒 Les outils OSINT sont réservés au propriétaire du bot.")
+            raise app_commands.CheckFailure(
+                "🔒 Les outils OSINT sont réservés au propriétaire du bot."
+            )
         if not self.bot.reglages["osint_active"]:
-            raise app_commands.CheckFailure("🛡️ Le module OSINT est désactivé (`/parametres` → 🛡️ OSINT).")
+            raise app_commands.CheckFailure(
+                "🛡️ Le module OSINT est désactivé (`/parametres` → 🛡️ OSINT)."
+            )
         return True
 
     # ------------------------------------------------------------ outils
 
-    async def journaliser(self, interaction: discord.Interaction, commande: str, cible: str, resultat: str) -> None:
+    async def journaliser(
+        self, interaction: discord.Interaction, commande: str, cible: str, resultat: str
+    ) -> None:
         try:
             await self.bot.db.journaliser_osint(interaction.user.id, commande, cible, resultat)
         except Exception:
             log.exception("Journal OSINT indisponible")
 
-    async def envoyer(self, interaction: discord.Interaction, embed: discord.Embed, **kwargs: object) -> None:
+    async def envoyer(
+        self, interaction: discord.Interaction, embed: discord.Embed, **kwargs: object
+    ) -> None:
         """Envoie le résultat ; ajoute l'avertissement légal au premier usage."""
         embeds = [embed]
         avertis = list(self.bot.reglages["_osint_avertis"])
@@ -130,7 +152,9 @@ class OSINT(commands.GroupCog, group_name="osint", group_description="Outils OSI
             await self.bot.reglages.definir("_osint_avertis", [*avertis, interaction.user.id])
         await repondre(interaction, embeds=embeds, **kwargs)
 
-    async def _executer(self, interaction: discord.Interaction, commande: str, cible: str, travail: object) -> None:
+    async def _executer(
+        self, interaction: discord.Interaction, commande: str, cible: str, travail: object
+    ) -> None:
         await interaction.response.defer(ephemeral=True, thinking=True)
         try:
             resultat = await travail  # type: ignore[misc]
@@ -141,38 +165,65 @@ class OSINT(commands.GroupCog, group_name="osint", group_description="Outils OSI
         except Exception as exc:
             log.warning("OSINT %s : %s", commande, type(exc).__name__)
             await self.journaliser(interaction, commande, cible, "erreur")
-            await repondre(interaction, embed=embed_erreur("Le service en ligne ne répond pas pour le moment. Réessaie plus tard."))
+            await repondre(
+                interaction,
+                embed=embed_erreur(
+                    "Le service en ligne ne répond pas pour le moment. Réessaie plus tard."
+                ),
+            )
             return
         await self.journaliser(interaction, commande, cible, "ok")
         await self.envoyer(interaction, embed_resultat(resultat))
 
     # ------------------------------------------------------------ commandes
 
-    @app_commands.command(name="domaine", description="WHOIS, DNS, certificat SSL et archives d'un nom de domaine")
+    @app_commands.command(
+        name="domaine", description="WHOIS, DNS, certificat SSL et archives d'un nom de domaine"
+    )
     @app_commands.describe(nom="Ex. exemple.be")
-    async def domaine(self, interaction: discord.Interaction, nom: app_commands.Range[str, 1, 255]) -> None:
+    async def domaine(
+        self, interaction: discord.Interaction, nom: app_commands.Range[str, 1, 255]
+    ) -> None:
         await self._executer(interaction, "domaine", nom, self.service.domaine(nom))
 
-    @app_commands.command(name="ip", description="Pays, fournisseur et ASN d'une adresse IP publique")
+    @app_commands.command(
+        name="ip", description="Pays, fournisseur et ASN d'une adresse IP publique"
+    )
     @app_commands.describe(adresse="Ex. 8.8.8.8")
-    async def ip(self, interaction: discord.Interaction, adresse: app_commands.Range[str, 1, 64]) -> None:
+    async def ip(
+        self, interaction: discord.Interaction, adresse: app_commands.Range[str, 1, 64]
+    ) -> None:
         await self._executer(interaction, "ip", adresse, self.service.ip(adresse))
 
-    @app_commands.command(name="lien", description="Analyse un lien AVANT de cliquer (redirections, réputation)")
+    @app_commands.command(
+        name="lien", description="Analyse un lien AVANT de cliquer (redirections, réputation)"
+    )
     @app_commands.describe(url="Le lien à vérifier")
-    async def lien(self, interaction: discord.Interaction, url: app_commands.Range[str, 1, 2000]) -> None:
+    async def lien(
+        self, interaction: discord.Interaction, url: app_commands.Range[str, 1, 2000]
+    ) -> None:
         await self._executer(interaction, "lien", url, self.service.lien(url))
 
-    @app_commands.command(name="entreprise", description="Données publiques d'une entreprise belge (BCE/KBO)")
+    @app_commands.command(
+        name="entreprise", description="Données publiques d'une entreprise belge (BCE/KBO)"
+    )
     @app_commands.describe(numero_ou_nom="Numéro d'entreprise (0403.170.701) ou dénomination")
-    async def entreprise(self, interaction: discord.Interaction, numero_ou_nom: app_commands.Range[str, 1, 100]) -> None:
-        await self._executer(interaction, "entreprise", numero_ou_nom, self.service.entreprise(numero_ou_nom))
+    async def entreprise(
+        self, interaction: discord.Interaction, numero_ou_nom: app_commands.Range[str, 1, 100]
+    ) -> None:
+        await self._executer(
+            interaction, "entreprise", numero_ou_nom, self.service.entreprise(numero_ou_nom)
+        )
 
-    @app_commands.command(name="motdepasse", description="Un de MES mots de passe a-t-il fuité ? (k-anonymity)")
+    @app_commands.command(
+        name="motdepasse", description="Un de MES mots de passe a-t-il fuité ? (k-anonymity)"
+    )
     async def motdepasse(self, interaction: discord.Interaction) -> None:
         await interaction.response.send_modal(ModalMotDePasse(self))
 
-    @app_commands.command(name="image", description="Métadonnées EXIF d'une image que J'envoie (+ version nettoyée)")
+    @app_commands.command(
+        name="image", description="Métadonnées EXIF d'une image que J'envoie (+ version nettoyée)"
+    )
     @app_commands.describe(fichier="Ta propre image (JPEG, PNG, WEBP...)")
     async def image(self, interaction: discord.Interaction, fichier: discord.Attachment) -> None:
         if not (fichier.content_type or "").startswith("image/") or fichier.size > TAILLE_IMAGE_MAX:
@@ -190,16 +241,23 @@ class OSINT(commands.GroupCog, group_name="osint", group_description="Outils OSI
         resultat = Resultat(titre="🖼️ Métadonnées de ton image", champs=[(k, v) for k, v in lignes])
         if gps:
             resultat.niveau = "orange"
-            resultat.champs.insert(0, (
-                "⚠️ Position GPS présente",
-                f"`{gps[0]}, {gps[1]}` : n'importe qui peut voir **où** la photo a été prise. "
-                "Envoie plutôt la version nettoyée.",
-            ))
+            resultat.champs.insert(
+                0,
+                (
+                    "⚠️ Position GPS présente",
+                    f"`{gps[0]}, {gps[1]}` : n'importe qui peut voir **où** la photo a été prise. "
+                    "Envoie plutôt la version nettoyée.",
+                ),
+            )
         else:
             resultat.niveau = "vert"
         resultat.note = "Rien n'est stocké."
         await self.journaliser(interaction, "image", "(image personnelle)", "ok")
-        await self.envoyer(interaction, embed_resultat(resultat), view=VueImage(donnees, fichier.filename, interaction.user.id))
+        await self.envoyer(
+            interaction,
+            embed_resultat(resultat),
+            view=VueImage(donnees, fichier.filename, interaction.user.id),
+        )
 
     # ------------------------------------------------------------ journal (bouton du panneau)
 
@@ -209,9 +267,15 @@ class OSINT(commands.GroupCog, group_name="osint", group_description="Outils OSI
             for uid, commande, cible, resultat, quand in await self.bot.db.journal_osint(200)
         ]
         if not lignes:
-            await repondre(interaction, embed=embed_info("📜 Journal OSINT", "Aucune recherche pour le moment."))
+            await repondre(
+                interaction,
+                embed=embed_info("📜 Journal OSINT", "Aucune recherche pour le moment."),
+            )
             return
-        pages = [embed_info("📜 Journal OSINT", "\n".join(lignes[i : i + 15])) for i in range(0, len(lignes), 15)]
+        pages = [
+            embed_info("📜 Journal OSINT", "\n".join(lignes[i : i + 15]))
+            for i in range(0, len(lignes), 15)
+        ]
         await envoyer_pages(interaction, pages)
 
 

@@ -47,7 +47,9 @@ def securiser_embed(embed: discord.Embed) -> discord.Embed:
             inline=c.inline,
         )
     if embed.footer and embed.footer.text:
-        embed.set_footer(text=tronquer(embed.footer.text, MAX_PIED_EMBED), icon_url=embed.footer.icon_url)
+        embed.set_footer(
+            text=tronquer(embed.footer.text, MAX_PIED_EMBED), icon_url=embed.footer.icon_url
+        )
     # Trop long au total : on raccourcit les champs les plus longs
     while len(embed) > MAX_TOTAL_EMBED and embed.fields:
         index, plus_long = max(enumerate(embed.fields), key=lambda p: len(p[1].value or ""))
@@ -58,7 +60,9 @@ def securiser_embed(embed: discord.Embed) -> discord.Embed:
         else:
             embed.set_field_at(index, name=plus_long.name, value=nouvelle, inline=plus_long.inline)
     if len(embed) > MAX_TOTAL_EMBED and embed.description:
-        embed.description = tronquer(embed.description, max(0, len(embed.description) - (len(embed) - MAX_TOTAL_EMBED)))
+        embed.description = tronquer(
+            embed.description, max(0, len(embed.description) - (len(embed) - MAX_TOTAL_EMBED))
+        )
     return embed
 
 
@@ -123,12 +127,23 @@ def verifier_vue(vue: discord.ui.View) -> list[str]:
 
 def verifier_modal(modal: discord.ui.Modal) -> list[str]:
     problemes = []
-    champs = [c for c in modal.children if isinstance(c, discord.ui.TextInput)]
-    if len(champs) > MAX_CHAMPS_MODAL:
+    if len(modal.children) > MAX_CHAMPS_MODAL:
         problemes.append("modal avec plus de 5 champs")
     if modal.title and len(modal.title) > MAX_LABEL_MODAL:
         problemes.append("titre de modal trop long")
-    for c in champs:
-        if c.label and len(c.label) > MAX_LABEL_MODAL:
-            problemes.append(f"label de champ trop long : {c.label}")
+    for c in modal.children:
+        if isinstance(c, discord.ui.Label):
+            if len(c.text) > MAX_LABEL_MODAL:
+                problemes.append(f"titre de champ trop long : {c.text}")
+            if c.description and len(c.description) > MAX_DESCRIPTION_OPTION:
+                problemes.append(f"description de champ trop longue : {c.text}")
+            champ = c.component
+            if (
+                isinstance(champ, discord.ui.TextInput)
+                and champ.placeholder
+                and len(champ.placeholder) > MAX_TEXTE_OPTION
+            ):
+                problemes.append(f"placeholder trop long : {c.text}")
+        else:
+            problemes.append(f"élément sans titre dans la modal : {type(c).__name__}")
     return problemes

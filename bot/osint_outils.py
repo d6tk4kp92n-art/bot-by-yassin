@@ -41,10 +41,30 @@ _RE_DOMAINE = re.compile(r"^(?=.{1,253}$)(?!-)(?:[a-z0-9-]{1,63}(?<!-)\.)+[a-z]{
 
 # Réseaux sociaux : un lien vers un PROFIL est hors périmètre (pas de profilage de personnes)
 RESEAUX_SOCIAUX = (
-    "facebook.com", "fb.com", "instagram.com", "tiktok.com", "twitter.com", "x.com", "linkedin.com",
-    "snapchat.com", "threads.net", "reddit.com", "pinterest.com", "vk.com", "onlyfans.com",
-    "twitch.tv", "youtube.com", "github.com", "steamcommunity.com", "roblox.com", "discord.com",
-    "discord.gg", "t.me", "telegram.me", "bsky.app", "mastodon.social",
+    "facebook.com",
+    "fb.com",
+    "instagram.com",
+    "tiktok.com",
+    "twitter.com",
+    "x.com",
+    "linkedin.com",
+    "snapchat.com",
+    "threads.net",
+    "reddit.com",
+    "pinterest.com",
+    "vk.com",
+    "onlyfans.com",
+    "twitch.tv",
+    "youtube.com",
+    "github.com",
+    "steamcommunity.com",
+    "roblox.com",
+    "discord.com",
+    "discord.gg",
+    "t.me",
+    "telegram.me",
+    "bsky.app",
+    "mastodon.social",
 )
 
 MESSAGE_PERSONNES = (
@@ -100,8 +120,14 @@ def valider_domaine(texte: str) -> str:
 
 
 def ip_publique(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
-    return not (ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast
-                or ip.is_reserved or ip.is_unspecified)
+    return not (
+        ip.is_private
+        or ip.is_loopback
+        or ip.is_link_local
+        or ip.is_multicast
+        or ip.is_reserved
+        or ip.is_unspecified
+    )
 
 
 def valider_ip(texte: str) -> str:
@@ -110,7 +136,9 @@ def valider_ip(texte: str) -> str:
     except ValueError:
         raise HorsPerimetre("Ce n'est pas une adresse IP valide (exemple : `8.8.8.8`).") from None
     if not ip_publique(ip):
-        raise HorsPerimetre("Adresse IP privée ou réservée (réseau local) : rien de public à analyser.")
+        raise HorsPerimetre(
+            "Adresse IP privée ou réservée (réseau local) : rien de public à analyser."
+        )
     return str(ip)
 
 
@@ -136,9 +164,13 @@ def valider_url(texte: str) -> str:
     try:
         ip = ipaddress.ip_address(parties.hostname)
         if not ip_publique(ip):
-            raise HorsPerimetre("Lien vers une adresse privée (réseau local) : refusé par sécurité.")
+            raise HorsPerimetre(
+                "Lien vers une adresse privée (réseau local) : refusé par sécurité."
+            )
     except ValueError:
-        if parties.hostname.lower() in ("localhost",) or parties.hostname.lower().endswith(".local"):
+        if parties.hostname.lower() in ("localhost",) or parties.hostname.lower().endswith(
+            ".local"
+        ):
             raise HorsPerimetre("Lien vers le réseau local : refusé par sécurité.") from None
     return url
 
@@ -168,7 +200,9 @@ def valider_entreprise(texte: str) -> tuple[str, str]:
         return "numero", numero
     _refuser_personnel(texte)
     if len(texte) < 2 or len(texte) > 100:
-        raise HorsPerimetre("Donne un numéro d'entreprise ou une dénomination (2 à 100 caractères).")
+        raise HorsPerimetre(
+            "Donne un numéro d'entreprise ou une dénomination (2 à 100 caractères)."
+        )
     return "nom", texte
 
 
@@ -180,9 +214,19 @@ def formater_bce(numero: str) -> str:
 
 
 class ClientHttp(Protocol):
-    async def get_json(self, url: str, params: dict[str, str] | None = None, headers: dict[str, str] | None = None) -> tuple[int, Any]: ...
-    async def get_text(self, url: str, params: dict[str, str] | None = None, headers: dict[str, str] | None = None) -> tuple[int, str]: ...
-    async def post_json(self, url: str, donnees: dict[str, Any], headers: dict[str, str] | None = None, formulaire: bool = False) -> tuple[int, Any]: ...
+    async def get_json(
+        self, url: str, params: dict[str, str] | None = None, headers: dict[str, str] | None = None
+    ) -> tuple[int, Any]: ...
+    async def get_text(
+        self, url: str, params: dict[str, str] | None = None, headers: dict[str, str] | None = None
+    ) -> tuple[int, str]: ...
+    async def post_json(
+        self,
+        url: str,
+        donnees: dict[str, Any],
+        headers: dict[str, str] | None = None,
+        formulaire: bool = False,
+    ) -> tuple[int, Any]: ...
     async def sans_redirection(self, url: str) -> tuple[int, str | None]: ...
     async def resoudre(self, hote: str) -> list[str]: ...
     async def certificat(self, hote: str) -> dict[str, Any]: ...
@@ -214,7 +258,9 @@ class Http:
                 await asyncio.sleep(attente)
             self._derniers[hote] = time.monotonic()
 
-    async def get_json(self, url: str, params: dict[str, str] | None = None, headers: dict[str, str] | None = None) -> tuple[int, Any]:
+    async def get_json(
+        self, url: str, params: dict[str, str] | None = None, headers: dict[str, str] | None = None
+    ) -> tuple[int, Any]:
         await self._politesse(url)
         async with self._s().get(url, params=params, headers=headers) as rep:
             try:
@@ -222,12 +268,20 @@ class Http:
             except (ValueError, aiohttp.ContentTypeError):
                 return rep.status, None
 
-    async def get_text(self, url: str, params: dict[str, str] | None = None, headers: dict[str, str] | None = None) -> tuple[int, str]:
+    async def get_text(
+        self, url: str, params: dict[str, str] | None = None, headers: dict[str, str] | None = None
+    ) -> tuple[int, str]:
         await self._politesse(url)
         async with self._s().get(url, params=params, headers=headers) as rep:
             return rep.status, await rep.text(errors="replace")
 
-    async def post_json(self, url: str, donnees: dict[str, Any], headers: dict[str, str] | None = None, formulaire: bool = False) -> tuple[int, Any]:
+    async def post_json(
+        self,
+        url: str,
+        donnees: dict[str, Any],
+        headers: dict[str, str] | None = None,
+        formulaire: bool = False,
+    ) -> tuple[int, Any]:
         await self._politesse(url)
         kwargs: dict[str, Any] = {"data": donnees} if formulaire else {"json": donnees}
         async with self._s().post(url, headers=headers, **kwargs) as rep:
@@ -249,7 +303,8 @@ class Http:
         contexte = ssl.create_default_context()
         try:
             _lecteur, ecrivain = await asyncio.wait_for(
-                asyncio.open_connection(hote, 443, ssl=contexte, server_hostname=hote), timeout=self.delai
+                asyncio.open_connection(hote, 443, ssl=contexte, server_hostname=hote),
+                timeout=self.delai,
             )
         except ssl.SSLCertVerificationError as exc:
             return {"erreur": exc.verify_message or "certificat invalide"}
@@ -259,7 +314,9 @@ class Http:
             ecrivain.close()
 
     async def whois(self, serveur: str, requete: str) -> str:
-        lecteur, ecrivain = await asyncio.wait_for(asyncio.open_connection(serveur, 43), timeout=self.delai)
+        lecteur, ecrivain = await asyncio.wait_for(
+            asyncio.open_connection(serveur, 43), timeout=self.delai
+        )
         try:
             ecrivain.write((requete + "\r\n").encode("idna"))
             await ecrivain.drain()
@@ -290,7 +347,9 @@ class Resultat:
 
 
 class ServiceOSINT:
-    def __init__(self, http: ClientHttp, virustotal_key: str | None = None, urlscan_key: str | None = None) -> None:
+    def __init__(
+        self, http: ClientHttp, virustotal_key: str | None = None, urlscan_key: str | None = None
+    ) -> None:
         self.http = http
         self.vt_key = virustotal_key
         self.urlscan_key = urlscan_key
@@ -301,7 +360,11 @@ class ServiceOSINT:
         nom = valider_domaine(cible)
         r = Resultat(titre=f"🌐 Domaine · {nom}")
         taches = await asyncio.gather(
-            self._whois(nom), self._dns(nom), self._ssl(nom), self._archive(nom), return_exceptions=True
+            self._whois(nom),
+            self._dns(nom),
+            self._ssl(nom),
+            self._archive(nom),
+            return_exceptions=True,
         )
         noms = ("📇 WHOIS", "🧭 DNS", "🔒 Certificat SSL", "🏛️ Archive.org")
         for titre, valeur in zip(noms, taches, strict=True):
@@ -317,8 +380,14 @@ class ServiceOSINT:
             return lire_rdap(donnees)
         # Pas de RDAP (ex. .be) : WHOIS classique, uniquement registrar et dates
         texte = await self.http.whois("whois.iana.org", nom.rsplit(".", 1)[-1])
-        serveur = next((ligne.split(":", 1)[1].strip() for ligne in texte.splitlines()
-                        if ligne.lower().startswith(("refer:", "whois:"))), None)
+        serveur = next(
+            (
+                ligne.split(":", 1)[1].strip()
+                for ligne in texte.splitlines()
+                if ligne.lower().startswith(("refer:", "whois:"))
+            ),
+            None,
+        )
         if not serveur:
             return "Aucune information WHOIS publique."
         return lire_whois_texte(await self.http.whois(serveur, nom))
@@ -326,13 +395,21 @@ class ServiceOSINT:
     async def _dns(self, nom: str) -> str:
         lignes = []
         for type_ in ("A", "AAAA", "MX", "NS", "TXT"):
-            statut, donnees = await self.http.get_json("https://dns.google/resolve", params={"name": nom, "type": type_})
+            statut, donnees = await self.http.get_json(
+                "https://dns.google/resolve", params={"name": nom, "type": type_}
+            )
             if statut != 200 or not isinstance(donnees, dict):
                 lignes.append(f"**{type_}** : indisponible")
                 continue
-            valeurs = [str(a.get("data", "")).strip('"') for a in donnees.get("Answer") or [] if a.get("data")]
+            valeurs = [
+                str(a.get("data", "")).strip('"')
+                for a in donnees.get("Answer") or []
+                if a.get("data")
+            ]
             if valeurs:
-                texte = ", ".join(v[:80] for v in valeurs[:4]) + (f" (+{len(valeurs) - 4})" if len(valeurs) > 4 else "")
+                texte = ", ".join(v[:80] for v in valeurs[:4]) + (
+                    f" (+{len(valeurs) - 4})" if len(valeurs) > 4 else ""
+                )
                 lignes.append(f"**{type_}** : `{texte}`")
             else:
                 lignes.append(f"**{type_}** : —")
@@ -346,22 +423,36 @@ class ServiceOSINT:
             return f"❌ Certificat invalide : {cert['erreur']}"
         emetteur = dict(x[0] for x in cert.get("issuer", ()) if x)
         fin = cert.get("notAfter")
-        lignes = [f"Émetteur : **{emetteur.get('organizationName') or emetteur.get('commonName', '?')}**"]
+        lignes = [
+            f"Émetteur : **{emetteur.get('organizationName') or emetteur.get('commonName', '?')}**"
+        ]
         if fin:
             expiration = ssl.cert_time_to_seconds(fin)
             jours = int((expiration - time.time()) // 86400)
             alerte = " ⚠️" if jours < 15 else ""
-            lignes.append(f"Expire le {datetime.fromtimestamp(expiration):%d/%m/%Y} (dans {jours} j){alerte}")
+            lignes.append(
+                f"Expire le {datetime.fromtimestamp(expiration):%d/%m/%Y} (dans {jours} j){alerte}"
+            )
         noms = [v for k, v in cert.get("subjectAltName", ()) if k == "DNS"]
         if noms:
-            lignes.append(f"Couvre {len(noms)} nom(s) : `{', '.join(noms[:3])}`" + (" …" if len(noms) > 3 else ""))
+            lignes.append(
+                f"Couvre {len(noms)} nom(s) : `{', '.join(noms[:3])}`"
+                + (" …" if len(noms) > 3 else "")
+            )
         return "\n".join(lignes)
 
     async def _archive(self, nom: str) -> str:
-        statut, donnees = await self.http.get_json("https://archive.org/wayback/available", params={"url": nom})
-        proche = (donnees or {}).get("archived_snapshots", {}).get("closest") if statut == 200 and isinstance(donnees, dict) else None
+        statut, donnees = await self.http.get_json(
+            "https://archive.org/wayback/available", params={"url": nom}
+        )
+        proche = (
+            (donnees or {}).get("archived_snapshots", {}).get("closest")
+            if statut == 200 and isinstance(donnees, dict)
+            else None
+        )
         statut2, premiere = await self.http.get_json(
-            "https://web.archive.org/cdx/search/cdx", params={"url": nom, "limit": "1", "output": "json"}
+            "https://web.archive.org/cdx/search/cdx",
+            params={"url": nom, "limit": "1", "output": "json"},
         )
         lignes = []
         if statut2 == 200 and isinstance(premiere, list) and len(premiere) > 1:
@@ -380,7 +471,10 @@ class ServiceOSINT:
         connexion = d.get("connection") or {}
         r = Resultat(titre=f"📍 Adresse IP · {adresse}")
         r.champs = [
-            ("🌍 Localisation approximative", f"{d.get('flag', {}).get('emoji', '')} {d.get('country', '?')} · {d.get('city', '?')}".strip()),
+            (
+                "🌍 Localisation approximative",
+                f"{d.get('flag', {}).get('emoji', '')} {d.get('country', '?')} · {d.get('city', '?')}".strip(),
+            ),
             ("🏢 Fournisseur", str(connexion.get("isp") or connexion.get("org") or "?")),
             ("🔢 ASN", f"AS{connexion.get('asn')}" if connexion.get("asn") else "?"),
             ("🌐 Type", str(d.get("type", "?"))),
@@ -395,9 +489,21 @@ class ServiceOSINT:
         chaine = await self._suivre_redirections(url)
         finale = chaine[-1]
         r = Resultat(titre="🔗 Analyse de lien")
-        r.champs.append(("➡️ Redirections", "\n".join(f"`{_court(u)}`" for u in chaine) if len(chaine) > 1 else "Aucune"))
+        r.champs.append(
+            (
+                "➡️ Redirections",
+                "\n".join(f"`{_court(u)}`" for u in chaine) if len(chaine) > 1 else "Aucune",
+            )
+        )
         signaux = signaux_suspects(url, chaine)
-        r.champs.append(("🔎 Indices", "\n".join(f"• {s}" for s in signaux) if signaux else "Rien de suspect dans l'adresse"))
+        r.champs.append(
+            (
+                "🔎 Indices",
+                "\n".join(f"• {s}" for s in signaux)
+                if signaux
+                else "Rien de suspect dans l'adresse",
+            )
+        )
         niveaux = []
         if self.vt_key:
             niveau, texte = await self._virustotal(finale)
@@ -453,9 +559,16 @@ class ServiceOSINT:
     async def _virustotal(self, url: str) -> tuple[str, str]:
         identifiant = base64.urlsafe_b64encode(url.encode()).decode().rstrip("=")
         entetes = {"x-apikey": self.vt_key or ""}
-        statut, d = await self.http.get_json(f"https://www.virustotal.com/api/v3/urls/{identifiant}", headers=entetes)
+        statut, d = await self.http.get_json(
+            f"https://www.virustotal.com/api/v3/urls/{identifiant}", headers=entetes
+        )
         if statut == 404:
-            await self.http.post_json("https://www.virustotal.com/api/v3/urls", {"url": url}, headers=entetes, formulaire=True)
+            await self.http.post_json(
+                "https://www.virustotal.com/api/v3/urls",
+                {"url": url},
+                headers=entetes,
+                formulaire=True,
+            )
             return "info", "Lien jamais analysé : analyse demandée, réessaie dans 1 minute."
         if statut == 401:
             return "info", "Clé VirusTotal refusée (vérifie VIRUSTOTAL_API_KEY)."
@@ -472,7 +585,9 @@ class ServiceOSINT:
     async def _urlscan(self, url: str) -> tuple[str, str]:
         entetes = {"API-Key": self.urlscan_key or ""}
         statut, d = await self.http.post_json(
-            "https://urlscan.io/api/v1/scan/", {"url": url, "visibility": "unlisted"}, headers=entetes
+            "https://urlscan.io/api/v1/scan/",
+            {"url": url, "visibility": "unlisted"},
+            headers=entetes,
         )
         if statut == 429:
             return "info", "Limite gratuite atteinte, réessaie plus tard."
@@ -481,7 +596,9 @@ class ServiceOSINT:
             return "info", f"Analyse impossible{f' : {message}' if message else ''}."
         for _ in range(8):  # le résultat arrive en ~10-30 s
             await asyncio.sleep(4)
-            statut, res = await self.http.get_json(f"https://urlscan.io/api/v1/result/{d['uuid']}/", headers=entetes)
+            statut, res = await self.http.get_json(
+                f"https://urlscan.io/api/v1/result/{d['uuid']}/", headers=entetes
+            )
             if statut == 200 and isinstance(res, dict):
                 verdict = res.get("verdicts", {}).get("overall", {})
                 if verdict.get("malicious"):
@@ -496,22 +613,36 @@ class ServiceOSINT:
         base = "https://kbopub.economie.fgov.be/kbopub"
         if type_ == "numero":
             statut, page = await self.http.get_text(
-                f"{base}/toonondernemingps.html", params={"ondernemingsnummer": valeur, "lang": "fr"}
+                f"{base}/toonondernemingps.html",
+                params={"ondernemingsnummer": valeur, "lang": "fr"},
             )
             if statut != 200:
                 raise RuntimeError("site de la BCE indisponible")
             infos = lire_page_bce(page)
             if not infos:
-                return Resultat(f"🏢 BCE · {formater_bce(valeur)}", [("Résultat", "Aucune entreprise trouvée avec ce numéro.")])
+                return Resultat(
+                    f"🏢 BCE · {formater_bce(valeur)}",
+                    [("Résultat", "Aucune entreprise trouvée avec ce numéro.")],
+                )
             return resultat_entreprise(valeur, infos)
         # Recherche par nom : UNIQUEMENT les personnes morales (ondNP=false)
         statut, page = await self.http.get_text(
             f"{base}/zoeknaamfonetischform.html",
             params={
-                "searchWord": valeur, "_oudeBenaming": "on", "pstcdeNPRP": "", "postgemeente1": "",
-                "ondNP": "false", "_ondNP": "on", "ondRP": "true", "_ondRP": "on", "rechtsvormFonetic": "ALL",
-                "_vest": "on", "filterEnkelActieve": "true", "_filterEnkelActieve": "on",
-                "actionNPRP": "Rechercher", "lang": "fr",
+                "searchWord": valeur,
+                "_oudeBenaming": "on",
+                "pstcdeNPRP": "",
+                "postgemeente1": "",
+                "ondNP": "false",
+                "_ondNP": "on",
+                "ondRP": "true",
+                "_ondRP": "on",
+                "rechtsvormFonetic": "ALL",
+                "_vest": "on",
+                "filterEnkelActieve": "true",
+                "_filterEnkelActieve": "on",
+                "actionNPRP": "Rechercher",
+                "lang": "fr",
             },
         )
         if statut != 200:
@@ -521,10 +652,12 @@ class ServiceOSINT:
         if not trouvees:
             r.champs.append(("Résultat", "Aucune personne morale active trouvée avec ce nom."))
         else:
-            r.champs.append((
-                f"{len(trouvees)} résultat(s)",
-                "\n".join(f"`{formater_bce(n)}` · {nom}" for n, nom in trouvees[:10]),
-            ))
+            r.champs.append(
+                (
+                    f"{len(trouvees)} résultat(s)",
+                    "\n".join(f"`{formater_bce(n)}` · {nom}" for n, nom in trouvees[:10]),
+                )
+            )
             r.note = "Pour le détail : `/osint entreprise numero_ou_nom:<numéro>`."
         return r
 
@@ -543,11 +676,26 @@ class ServiceOSINT:
         r = Resultat(titre="🔑 Vérification de mot de passe")
         if fois:
             r.niveau = "rouge"
-            r.champs.append(("🔴 Mot de passe compromis", f"Il apparaît **{fois:,}** fois dans des fuites connues.".replace(",", " ")))
-            r.champs.append(("Que faire ?", "Change-le partout où tu l'utilises, et active la double authentification."))
+            r.champs.append(
+                (
+                    "🔴 Mot de passe compromis",
+                    f"Il apparaît **{fois:,}** fois dans des fuites connues.".replace(",", " "),
+                )
+            )
+            r.champs.append(
+                (
+                    "Que faire ?",
+                    "Change-le partout où tu l'utilises, et active la double authentification.",
+                )
+            )
         else:
             r.niveau = "vert"
-            r.champs.append(("🟢 Aucune fuite connue", "Ce mot de passe n'apparaît dans aucune fuite publique connue."))
+            r.champs.append(
+                (
+                    "🟢 Aucune fuite connue",
+                    "Ce mot de passe n'apparaît dans aucune fuite publique connue.",
+                )
+            )
         r.note = "Ton mot de passe n'a jamais quitté le PC : seuls 5 caractères de son empreinte SHA-1 ont été envoyés."
         return r
 
@@ -576,7 +724,11 @@ def lire_rdap(d: dict[str, Any]) -> str:
                     registrar = str(champ[3])
     dates = {e.get("eventAction"): e.get("eventDate", "")[:10] for e in d.get("events") or []}
     lignes = [f"Registrar : **{registrar}**"]
-    for cle, libelle in (("registration", "Créé le"), ("expiration", "Expire le"), ("last changed", "Modifié le")):
+    for cle, libelle in (
+        ("registration", "Créé le"),
+        ("expiration", "Expire le"),
+        ("last changed", "Modifié le"),
+    ):
         if dates.get(cle):
             try:
                 lignes.append(f"{libelle} {datetime.fromisoformat(dates[cle]):%d/%m/%Y}")
@@ -630,13 +782,46 @@ def signaux_suspects(url: str, chaine: Sequence[str]) -> list[str]:
         signaux.append("Contient « @ » dans l'adresse : technique de tromperie classique")
     if hote.count(".") >= 4:
         signaux.append("Beaucoup de sous-domaines")
-    if hote.rsplit(".", 1)[-1] in {"zip", "mov", "xyz", "top", "click", "gq", "tk", "ml", "cf", "ga", "rest", "cam"}:
+    if hote.rsplit(".", 1)[-1] in {
+        "zip",
+        "mov",
+        "xyz",
+        "top",
+        "click",
+        "gq",
+        "tk",
+        "ml",
+        "cf",
+        "ga",
+        "rest",
+        "cam",
+    }:
         signaux.append("Extension de domaine souvent utilisée par des arnaques")
-    if hote in {"bit.ly", "tinyurl.com", "t.co", "goo.gl", "is.gd", "cutt.ly", "rb.gy", "ow.ly", "shorturl.at"}:
+    if hote in {
+        "bit.ly",
+        "tinyurl.com",
+        "t.co",
+        "goo.gl",
+        "is.gd",
+        "cutt.ly",
+        "rb.gy",
+        "ow.ly",
+        "shorturl.at",
+    }:
         signaux.append("Lien raccourci : la vraie destination est cachée")
     if len(url) > 200:
         signaux.append("Adresse anormalement longue")
-    mots = ("login", "verify", "free-robux", "robux", "nitro", "gift", "wallet", "password", "account-update")
+    mots = (
+        "login",
+        "verify",
+        "free-robux",
+        "robux",
+        "nitro",
+        "gift",
+        "wallet",
+        "password",
+        "account-update",
+    )
     if any(m in url.lower() for m in mots):
         signaux.append("Mots typiques du phishing (connexion, cadeau, Robux, Nitro...)")
     if len(chaine) > 1:
@@ -660,7 +845,9 @@ def compter_fuites(reponse_api: str, suffixe: str) -> int:
 
 
 def _texte_html(fragment: str) -> str:
-    fragment = re.sub(r"<span class=\"upd\">.*?</span>", "", fragment, flags=re.IGNORECASE | re.DOTALL)
+    fragment = re.sub(
+        r"<span class=\"upd\">.*?</span>", "", fragment, flags=re.IGNORECASE | re.DOTALL
+    )
     fragment = re.sub(r"<br\s*/?>", "\n", fragment, flags=re.IGNORECASE)
     fragment = re.sub(r"<[^>]+>", "", fragment)
     lignes = [re.sub(r"\s+", " ", html.unescape(x)).strip() for x in fragment.splitlines()]
@@ -701,9 +888,18 @@ def lire_recherche_bce(page: str) -> list[tuple[str, str]]:
         m = re.search(r"ondernemingsnummer=(\d{10})", ligne)
         if not m or m.group(1) in vus:
             continue
-        cellules = [_texte_html(c) for c in re.findall(r"<td[^>]*>(.*?)</td>", ligne, flags=re.IGNORECASE | re.DOTALL)]
-        candidats = [c.split("\n")[0] for c in cellules if c and re.search(r"[A-Za-zÀ-ÿ]{2}", c)
-                     and not re.fullmatch(r"[\d.\s]+", c) and c.casefold() not in {"actif", "arrêté", "active"}]
+        cellules = [
+            _texte_html(c)
+            for c in re.findall(r"<td[^>]*>(.*?)</td>", ligne, flags=re.IGNORECASE | re.DOTALL)
+        ]
+        candidats = [
+            c.split("\n")[0]
+            for c in cellules
+            if c
+            and re.search(r"[A-Za-zÀ-ÿ]{2}", c)
+            and not re.fullmatch(r"[\d.\s]+", c)
+            and c.casefold() not in {"actif", "arrêté", "active"}
+        ]
         nom = max(candidats, key=len) if candidats else "?"
         vus.add(m.group(1))
         resultats.append((m.group(1), nom[:80]))
@@ -715,14 +911,24 @@ def resultat_entreprise(numero: str, infos: dict[str, str]) -> Resultat:
     personne_physique = "physique" in infos.get("type", "").casefold()
     if personne_physique:
         # RGPD : une entreprise en personne physique = une personne. On ne montre ni nom ni adresse.
-        r.champs.append(("👤 Personne physique", "Entreprise individuelle : nom et adresse masqués (RGPD)."))
+        r.champs.append(
+            ("👤 Personne physique", "Entreprise individuelle : nom et adresse masqués (RGPD).")
+        )
     else:
         r.champs.append(("📛 Dénomination", infos.get("denomination", "?").split("\n")[0]))
         if infos.get("forme"):
             r.champs.append(("⚖️ Forme juridique", infos["forme"].split("\n")[0]))
         if infos.get("siege"):
             r.champs.append(("📍 Siège", infos["siege"]))
-    r.champs.append(("📊 Statut", " · ".join(x for x in (infos.get("statut"), infos.get("situation", "").split("\n")[0]) if x) or "?"))
+    r.champs.append(
+        (
+            "📊 Statut",
+            " · ".join(
+                x for x in (infos.get("statut"), infos.get("situation", "").split("\n")[0]) if x
+            )
+            or "?",
+        )
+    )
     if infos.get("debut"):
         r.champs.append(("📅 Date de création", infos["debut"]))
     r.note = "Source : Banque-Carrefour des Entreprises (données publiques)."
@@ -739,8 +945,14 @@ def lire_exif(donnees: bytes) -> tuple[list[tuple[str, str]], tuple[float, float
     with Image.open(io.BytesIO(donnees)) as img:
         exif = img.getexif()
         lignes: list[tuple[str, str]] = [("Format", f"{img.format} · {img.width}×{img.height}")]
-        importants = {"Make": "Appareil (marque)", "Model": "Appareil (modèle)", "Software": "Logiciel",
-                      "DateTime": "Date", "Artist": "Auteur", "Copyright": "Copyright"}
+        importants = {
+            "Make": "Appareil (marque)",
+            "Model": "Appareil (modèle)",
+            "Software": "Logiciel",
+            "DateTime": "Date",
+            "Artist": "Auteur",
+            "Copyright": "Copyright",
+        }
         for tag, valeur in exif.items():
             nom = ExifTags.TAGS.get(tag, str(tag))
             if nom in importants:
@@ -749,7 +961,12 @@ def lire_exif(donnees: bytes) -> tuple[list[tuple[str, str]], tuple[float, float
         for tag, valeur in sous.items():
             nom = ExifTags.TAGS.get(tag, str(tag))
             if nom in ("DateTimeOriginal", "LensModel"):
-                lignes.append(({"DateTimeOriginal": "Prise de vue", "LensModel": "Objectif"}[nom], str(valeur)[:100]))
+                lignes.append(
+                    (
+                        {"DateTimeOriginal": "Prise de vue", "LensModel": "Objectif"}[nom],
+                        str(valeur)[:100],
+                    )
+                )
         gps = exif.get_ifd(ExifTags.IFD.GPSInfo)
         lignes.append(("Nombre de métadonnées", str(len(exif) + len(sous) + len(gps))))
         return lignes, _coordonnees(gps)
@@ -757,6 +974,7 @@ def lire_exif(donnees: bytes) -> tuple[list[tuple[str, str]], tuple[float, float
 
 def _coordonnees(gps: dict[int, Any]) -> tuple[float, float] | None:
     try:
+
         def deg(valeurs: Sequence[Any], ref: str) -> float:
             d, m, s = (float(v) for v in valeurs)
             signe = -1 if ref in ("S", "W") else 1

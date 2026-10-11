@@ -31,7 +31,12 @@ class VueConversation(VueBase):
     def __init__(self) -> None:
         super().__init__(timeout=None)
 
-    @discord.ui.button(label="Nouvelle conversation", emoji="🧹", style=discord.ButtonStyle.secondary, custom_id="tw:ia:nouvelle")
+    @discord.ui.button(
+        label="Nouvelle conversation",
+        emoji="🧹",
+        style=discord.ButtonStyle.secondary,
+        custom_id="tw:ia:nouvelle",
+    )
     async def nouvelle(self, interaction: discord.Interaction, _b: discord.ui.Button) -> None:
         cog = interaction.client.get_cog("IA")  # type: ignore[attr-defined]
         if cog is None:
@@ -49,7 +54,9 @@ def _octets(n: int | None) -> str:
 class IA(commands.Cog):
     def __init__(self, bot: TekkitBot) -> None:
         self.bot = bot
-        self.moteur = MoteurIA(ClientOllama(bot.config.ollama_url), bot.reglages, OutilsIA(bot.services))
+        self.moteur = MoteurIA(
+            ClientOllama(bot.config.ollama_url), bot.reglages, OutilsIA(bot.services)
+        )
 
     async def cog_load(self) -> None:
         self.bot.add_view(VueConversation())
@@ -62,14 +69,26 @@ class IA(commands.Cog):
     async def _verifier(self, interaction: discord.Interaction) -> bool:
         """Activée ? autorisé ? pas trop de questions ? Répond à la place si non."""
         if not self.bot.reglages["ia_active"]:
-            await repondre(interaction, embed=embed_attention("L'IA est désactivée (`/parametres` → 🤖 IA)."))
+            await repondre(
+                interaction, embed=embed_attention("L'IA est désactivée (`/parametres` → 🤖 IA).")
+            )
             return False
         if not self.moteur.autorise(interaction.user.id, self.bot.config.owner_id):
-            await repondre(interaction, embed=embed_erreur("🔒 Tu n'es pas autorisé à utiliser l'IA. Demande au propriétaire."))
+            await repondre(
+                interaction,
+                embed=embed_erreur(
+                    "🔒 Tu n'es pas autorisé à utiliser l'IA. Demande au propriétaire."
+                ),
+            )
             return False
         if self.moteur.limite_atteinte(interaction.user.id):
             limite = self.bot.reglages["ia_limite_minute"]
-            await repondre(interaction, embed=embed_attention(f"🚦 Maximum {limite} questions par minute. Patiente un peu."))
+            await repondre(
+                interaction,
+                embed=embed_attention(
+                    f"🚦 Maximum {limite} questions par minute. Patiente un peu."
+                ),
+            )
             return False
         return True
 
@@ -81,18 +100,33 @@ class IA(commands.Cog):
 
         return prevenir
 
-    async def _envoyer_texte(self, interaction: discord.Interaction, texte: str, pied: str, vue: discord.ui.View | None) -> None:
+    async def _envoyer_texte(
+        self, interaction: discord.Interaction, texte: str, pied: str, vue: discord.ui.View | None
+    ) -> None:
         morceaux = decouper_message(texte, 1900) or ["…"]
         morceaux[-1] = f"{morceaux[-1]}\n-# {pied}"
-        await interaction.edit_original_response(content=morceaux[0], view=vue if len(morceaux) == 1 else None)
+        aucune = discord.AllowedMentions.none()  # l'IA ne mentionne jamais personne
+        await interaction.edit_original_response(
+            content=morceaux[0], view=vue if len(morceaux) == 1 else None, allowed_mentions=aucune
+        )
         for i, morceau in enumerate(morceaux[1:], start=2):
-            await interaction.followup.send(morceau, view=vue if i == len(morceaux) else discord.utils.MISSING)
+            await interaction.followup.send(
+                morceau,
+                view=vue if i == len(morceaux) else discord.utils.MISSING,
+                allowed_mentions=aucune,
+            )
 
     # ------------------------------------------------------------ /ia
 
-    @app_commands.command(name="ia", description="Pose une question à l'IA locale (elle connaît tes stats)")
-    @app_commands.describe(question="Ex. « analyse mon farm d'aujourd'hui », « quel compte est le plus rentable ? »")
-    async def ia(self, interaction: discord.Interaction, question: app_commands.Range[str, 1, 1500]) -> None:
+    @app_commands.command(
+        name="ia", description="Pose une question à l'IA locale (elle connaît tes stats)"
+    )
+    @app_commands.describe(
+        question="Ex. « analyse mon farm d'aujourd'hui », « quel compte est le plus rentable ? »"
+    )
+    async def ia(
+        self, interaction: discord.Interaction, question: app_commands.Range[str, 1, 1500]
+    ) -> None:
         if not await self._verifier(interaction):
             return
         await interaction.response.defer(thinking=True)  # affiche « Tekkit Watch réfléchit… »
@@ -100,13 +134,19 @@ class IA(commands.Cog):
         memoire = int(self.bot.reglages["ia_memoire"]) * 2
         historique = await self.bot.db.historique_ia(salon, memoire) if memoire else []
         try:
-            reponse = await self.moteur.repondre(question, historique, self._sur_attente(interaction))
+            reponse = await self.moteur.repondre(
+                question, historique, self._sur_attente(interaction)
+            )
         except ErreurIA as exc:
-            await interaction.edit_original_response(content=None, embed=embed_erreur(str(exc), "🤖 IA indisponible"))
+            await interaction.edit_original_response(
+                content=None, embed=embed_erreur(str(exc), "🤖 IA indisponible")
+            )
             return
         except Exception:
             log.exception("Erreur inattendue de l'IA")
-            await interaction.edit_original_response(content=None, embed=embed_erreur("L'IA a rencontré un problème inattendu."))
+            await interaction.edit_original_response(
+                content=None, embed=embed_erreur("L'IA a rencontré un problème inattendu.")
+            )
             return
         await self.bot.db.ajouter_message_ia(salon, "user", question)
         await self.bot.db.ajouter_message_ia(salon, "assistant", reponse.texte)
@@ -115,22 +155,36 @@ class IA(commands.Cog):
             pied += " · 📊 données réelles"
         elif reponse.secours:
             pied += " · 📊 résumé des stats"
-        await self._envoyer_texte(interaction, f"> {question[:300]}\n\n{reponse.texte}", pied, VueConversation())
+        await self._envoyer_texte(
+            interaction, f"> {question[:300]}\n\n{reponse.texte}", pied, VueConversation()
+        )
 
     async def nouvelle_conversation(self, interaction: discord.Interaction) -> None:
         if not self.moteur.autorise(interaction.user.id, self.bot.config.owner_id):
-            await repondre(interaction, embed=embed_erreur("🔒 Réservé aux utilisateurs autorisés de l'IA."))
+            await repondre(
+                interaction, embed=embed_erreur("🔒 Réservé aux utilisateurs autorisés de l'IA.")
+            )
             return
         await self.bot.db.effacer_conversation_ia(interaction.channel_id or 0)
-        await repondre(interaction, embed=embed_succes("🧹 Mémoire effacée : la prochaine question démarre une nouvelle conversation."))
+        await repondre(
+            interaction,
+            embed=embed_succes(
+                "🧹 Mémoire effacée : la prochaine question démarre une nouvelle conversation."
+            ),
+        )
 
     # ------------------------------------------------------------ /ia-generer
 
-    @app_commands.command(name="ia-generer", description="Génère un texte prêt à copier (annonce, règles, idées...)")
+    @app_commands.command(
+        name="ia-generer", description="Génère un texte prêt à copier (annonce, règles, idées...)"
+    )
     @app_commands.describe(type="Type de texte", sujet="De quoi doit parler le texte ?")
     @app_commands.choices(type=CHOIX_GENERATION)
     async def ia_generer(
-        self, interaction: discord.Interaction, type: app_commands.Choice[str], sujet: app_commands.Range[str, 1, 1000]
+        self,
+        interaction: discord.Interaction,
+        type: app_commands.Choice[str],
+        sujet: app_commands.Range[str, 1, 1000],
     ) -> None:
         if not await self._verifier(interaction):
             return
@@ -138,13 +192,19 @@ class IA(commands.Cog):
         try:
             reponse = await self.moteur.generer(type.value, sujet, self._sur_attente(interaction))
         except ErreurIA as exc:
-            await interaction.edit_original_response(content=None, embed=embed_erreur(str(exc), "🤖 IA indisponible"))
+            await interaction.edit_original_response(
+                content=None, embed=embed_erreur(str(exc), "🤖 IA indisponible")
+            )
             return
         except Exception:
             log.exception("Erreur inattendue de l'IA")
-            await interaction.edit_original_response(content=None, embed=embed_erreur("L'IA a rencontré un problème inattendu."))
+            await interaction.edit_original_response(
+                content=None, embed=embed_erreur("L'IA a rencontré un problème inattendu.")
+            )
             return
-        pied = f"{type.name} · 🤖 {self.bot.reglages['ia_modele']} · {formater_duree(reponse.duree_s)}"
+        pied = (
+            f"{type.name} · 🤖 {self.bot.reglages['ia_modele']} · {formater_duree(reponse.duree_s)}"
+        )
         await self._envoyer_texte(interaction, reponse.texte, pied, None)
 
     # ------------------------------------------------------------ /ia-statut
@@ -155,11 +215,22 @@ class IA(commands.Cog):
         if not s.joignable:
             couleur, etat = ORANGE, f"🔴 Ollama ne répond pas sur `{self.bot.config.ollama_url}`"
         elif not s.modele_installe:
-            couleur, etat = ORANGE, f"🟠 Ollama OK, mais le modèle n'est pas téléchargé : `ollama pull {s.modele_choisi}`"
+            couleur, etat = (
+                ORANGE,
+                f"🟠 Ollama OK, mais le modèle n'est pas téléchargé : `ollama pull {s.modele_choisi}`",
+            )
         else:
             couleur, etat = VERT, "🟢 Ollama OK, modèle installé"
-        e = discord.Embed(title="🤖 Statut de l'IA locale", description=etat, color=couleur if r["ia_active"] else BLEU)
-        e.add_field(name="🧠 Modèle", value=f"`{s.modele_choisi}`\n{MODES_IA.get(r['ia_mode'], r['ia_mode'])}", inline=True)
+        e = discord.Embed(
+            title="🤖 Statut de l'IA locale",
+            description=etat,
+            color=couleur if r["ia_active"] else BLEU,
+        )
+        e.add_field(
+            name="🧠 Modèle",
+            value=f"`{s.modele_choisi}`\n{MODES_IA.get(r['ia_mode'], r['ia_mode'])}",
+            inline=True,
+        )
         e.add_field(
             name="💾 En mémoire",
             value=f"{'✅ chargé' if s.charge else '💤 déchargé (0 Go)'}\nRAM : {_octets(s.ram_octets)}",
@@ -171,14 +242,26 @@ class IA(commands.Cog):
             inline=True,
         )
         e.add_field(name="📋 File d'attente", value=f"{s.en_attente} demande(s)", inline=True)
-        e.add_field(name="💤 Déchargement auto", value=f"après {r['ia_keep_alive_min']} min sans question", inline=True)
+        e.add_field(
+            name="💤 Déchargement auto",
+            value=f"après {r['ia_keep_alive_min']} min sans question",
+            inline=True,
+        )
         e.add_field(name="🤖 IA activée", value="oui" if r["ia_active"] else "non", inline=True)
         if s.modeles:
-            e.add_field(name="📦 Modèles installés", value=", ".join(f"`{m}`" for m in s.modeles[:15]), inline=False)
-        e.set_footer(text=f"PC qui rame ? Essaie le modèle léger {MODELE_IA_LEGER} · 100 % local et gratuit")
+            e.add_field(
+                name="📦 Modèles installés",
+                value=", ".join(f"`{m}`" for m in s.modeles[:15]),
+                inline=False,
+            )
+        e.set_footer(
+            text=f"PC qui rame ? Essaie le modèle léger {MODELE_IA_LEGER} · 100 % local et gratuit"
+        )
         return e
 
-    @app_commands.command(name="ia-statut", description="Ollama joignable ? modèle chargé ? RAM utilisée ?")
+    @app_commands.command(
+        name="ia-statut", description="Ollama joignable ? modèle chargé ? RAM utilisée ?"
+    )
     async def ia_statut(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer(ephemeral=True, thinking=True)
         await repondre(interaction, embed=await self.embed_statut())
@@ -187,10 +270,15 @@ class IA(commands.Cog):
         """Bouton « Tester l'IA » du panneau : petite question rapide."""
         await interaction.response.defer(ephemeral=True, thinking=True)
         try:
-            reponse = await self.moteur.generer("autre", "Dis bonjour en une phrase courte et confirme que tu fonctionnes.")
+            reponse = await self.moteur.generer(
+                "autre", "Dis bonjour en une phrase courte et confirme que tu fonctionnes."
+            )
             await repondre(
                 interaction,
-                embed=embed_succes(f"{reponse.texte}\n\n-# ⏱️ {formater_duree(reponse.duree_s)}", "🧪 L'IA fonctionne"),
+                embed=embed_succes(
+                    f"{reponse.texte}\n\n-# ⏱️ {formater_duree(reponse.duree_s)}",
+                    "🧪 L'IA fonctionne",
+                ),
             )
         except ErreurIA as exc:
             await repondre(interaction, embed=embed_erreur(str(exc), "🧪 Test de l'IA"))

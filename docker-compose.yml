@@ -1,0 +1,29 @@
+# Lancement :            docker compose up -d --build
+# Avec l'IA locale :     docker compose --profile ia up -d --build
+#                        puis : docker compose exec ollama ollama pull qwen3.5:4b
+#                        et dans .env : OLLAMA_URL=http://ollama:11434
+# Logs :                 docker compose logs -f bot
+
+services:
+  bot:
+    build: .
+    container_name: tekkit-watch
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+
+  # IA locale (optionnelle) : demande au moins 4 Go de RAM libres pour le modèle 4b
+  ollama:
+    image: ollama/ollama:latest
+    container_name: tekkit-ollama
+    restart: unless-stopped
+    profiles: ["ia"]
+    volumes:
+      - ollama:/root/.ollama
+    environment:
+      - OLLAMA_MAX_LOADED_MODELS=1
+      - OLLAMA_NUM_PARALLEL=1
+
+volumes:
+  ollama:

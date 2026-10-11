@@ -8,9 +8,17 @@ from bot.parser import Drop, Mission
 from bot.reglages import Reglages
 
 
-def mission(compte: str, t: float, zone: str = "Safe", drops=None, mid: int | None = None) -> Mission:
-    return Mission(message_id=mid or int(t), compte=compte, horodatage=t, gold=100, zone=zone,
-                   drops=drops or [])
+def mission(
+    compte: str, t: float, zone: str = "Safe", drops=None, mid: int | None = None
+) -> Mission:
+    return Mission(
+        message_id=mid or int(t),
+        compte=compte,
+        horodatage=t,
+        gold=100,
+        zone=zone,
+        drops=drops or [],
+    )
 
 
 @pytest.fixture
@@ -130,5 +138,18 @@ async def test_reglages_persistants(tmp_path):
     await db.ecrire_reglage("delai_absence_min", "abc")
     await r2.charger()
     assert r2["delai_absence_min"] == 3
-    assert await r2.importer({"delai_absence_min": 4, "inconnu": 1, "_dernier_resume": 9}) == ["delai_absence_min"]
+    assert await r2.importer({"delai_absence_min": 4, "inconnu": 1, "_dernier_resume": 9}) == [
+        "delai_absence_min"
+    ]
+    await db.fermer()
+
+
+async def test_import_reglages_filtre_les_comptes(tmp_path):
+    db = Database(tmp_path / "i.db")
+    await db.connecter()
+    r = Reglages(db)
+    await r.charger()
+    comptes = ["ok_1", "a", "pas valide!", "ok_1", *[f"compte{i}" for i in range(20)]]
+    await r.importer({"comptes": comptes})
+    assert r["comptes"][0] == "ok_1" and len(r["comptes"]) == 10
     await db.fermer()
