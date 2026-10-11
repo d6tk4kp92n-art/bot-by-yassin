@@ -15,104 +15,118 @@ Bot Discord qui surveille ton farm AFK sur **Attack on Titan: Revolution** (Robl
 
 ## 🚀 Installation pas à pas (Windows)
 
-### Étape 1 : installer Python
+Compte environ 30 minutes. Fais les étapes **dans l'ordre**, une à la fois.
 
-1. Va sur <https://www.python.org/downloads/> et télécharge **Python 3.13** (ou plus récent).
-2. Lance l'installateur et **coche la case « Add python.exe to PATH »** en bas de la première fenêtre. C'est important !
-3. Clique sur **Install Now**.
+> 🔒 Ne montre **jamais** ton fichier `.env` ni ton token (pas de capture d'écran, pas de message Discord). Celui qui a le token contrôle le bot.
 
-> 💡 Tu as déjà Python 3.15 ? Ça peut marcher. Mais si l'installation des dépendances échoue (erreur de « compilation » ou de « wheel »), installe **aussi** Python 3.13 : `lancer_bot.bat` le choisira automatiquement.
+### Étape 1 : vérifier Python
 
-### Étape 2 : créer le bot sur Discord
+1. Appuie sur la touche **Windows**, tape `cmd`, puis **Entrée**. Une fenêtre noire s'ouvre.
+2. Tape `py --version` puis **Entrée**.
+   - Tu vois `Python 3.12`, `3.13`, `3.14` ou `3.15` (avec des chiffres après) ? C'est bon, passe à l'étape 2. Ton Python 3.15 convient très bien.
+   - Tu vois « `'py' n'est pas reconnu…` » ? Ouvre le **Microsoft Store**, cherche **Python Install Manager**, installe-le, **ferme la fenêtre noire**, ouvres-en une nouvelle et tape `py install 3.15`.
 
-1. Va sur <https://discord.com/developers/applications> et connecte-toi.
-2. Clique sur **New Application**, donne-lui un nom (ex. *Tekkit Watch*), accepte les conditions, **Create**.
-3. Dans le menu de gauche, clique sur **Bot** :
-   - Descends jusqu'à **Privileged Gateway Intents** et **active « MESSAGE CONTENT INTENT »**, puis **Save Changes**. Sans ça, le bot ne peut pas lire le webhook.
-   - En haut, clique sur **Reset Token**, confirme, puis **Copy**. Garde ce token pour l'étape 4.
-     ⚠️ Le token, c'est le mot de passe du bot : ne le montre à personne.
-4. Dans le menu de gauche, clique sur **OAuth2**, puis note l'**APPLICATION ID** (le *Client ID*).
-5. Invite le bot sur ton serveur en ouvrant ce lien (remplace `TON_CLIENT_ID`) :
+### Étape 2 : télécharger le bot
 
-   ```
-   https://discord.com/oauth2/authorize?client_id=TON_CLIENT_ID&scope=bot+applications.commands&permissions=117760
-   ```
+1. Ouvre <https://github.com/d6tk4kp92n-art/bot-by-yassin>.
+2. Clique sur le bouton vert **Code** puis, tout en bas du menu, sur **Download ZIP**. (GitHub est en anglais.)
+3. Va dans ton dossier **Téléchargements**. Fais un **clic droit sur le ZIP → Propriétés**. En bas, si tu vois une case **Débloquer**, coche-la, puis **Appliquer** et **OK**. Ça évite que Windows bloque les fichiers `.bat`.
+4. **Clic droit sur le ZIP → Extraire tout…** Clique sur **Parcourir…**, choisis un dossier simple comme `C:\TekkitWatch` (évite le Bureau et OneDrive), puis **Extraire**.
+5. Ouvre les dossiers jusqu'à voir **`lancer_bot.bat`**, **`README.md`** et le dossier **`bot`** côte à côte. (Il y a souvent un dossier dans un dossier : c'est normal.)
 
-   Choisis ton serveur puis **Autoriser**. Les permissions demandées sont seulement : voir les salons, envoyer des messages, intégrer des liens, joindre des fichiers et lire l'historique.
+### Étape 3 : créer le bot sur le site de Discord
 
-   > Tu préfères le faire à la main ? **OAuth2 → URL Generator** : coche `bot` et `applications.commands`, puis les permissions *View Channels*, *Send Messages*, *Embed Links*, *Attach Files* et *Read Message History*.
+Le site des développeurs Discord est en anglais : suis les noms des boutons tels quels.
 
-### Étape 3 : activer le mode développeur de Discord (pour copier les IDs)
-
-Dans Discord : **⚙️ Paramètres utilisateur → Avancés → Mode développeur** (active-le).
-
-Ensuite :
-- **ton ID** : clic droit sur ton pseudo → **Copier l'identifiant de l'utilisateur** ;
-- **l'ID du salon du webhook** : clic droit sur le salon où « Tekkit | Rewards Logger » poste → **Copier l'identifiant du salon**.
-
-### Étape 4 : remplir le fichier `.env`
-
-1. Dans le dossier du bot, fais une copie de `.env.example` et renomme la copie en **`.env`**.
-   (Pas de panique si tu n'y arrives pas : `lancer_bot.bat` le crée tout seul au premier lancement et l'ouvre dans le Bloc-notes.)
-2. Ouvre `.env` avec le Bloc-notes et remplis :
+1. Ouvre <https://discord.com/developers/applications> et connecte-toi avec ton compte Discord.
+2. Clique sur **New Application** (en haut à droite), tape le nom `Tekkit Watch`, coche la case des conditions si elle apparaît, puis **Create**.
+3. Tu arrives sur **General Information**. Sous **APPLICATION ID**, clique sur **Copy** et colle ce nombre dans le Bloc-notes : tu en auras besoin au point 7.
+4. Dans le menu de gauche, clique sur **Bot**.
+5. Clique sur **Reset Token**, confirme (Discord peut te redemander ton mot de passe ou ton code), puis **Copy**. Colle le token dans le Bloc-notes **tout de suite** : Discord ne le remontre jamais. (Si tu le perds : refais **Reset Token**.)
+6. Toujours sur la page **Bot**, descends jusqu'à **Privileged Gateway Intents** et active **uniquement** **Message Content Intent**. Clique sur **Save Changes**. Laisse **Requires OAuth2 Code Grant** désactivé, et ne touche pas à l'onglet **Installation**.
+7. Invite le bot sur ton serveur : copie ce lien dans ton navigateur en remplaçant `TON_APPLICATION_ID` par le nombre du point 3 (sans espace) :
 
    ```
-   DISCORD_TOKEN=le_token_copié_à_l_étape_2
-   OWNER_ID=ton_ID
-   WEBHOOK_CHANNEL_ID=l_ID_du_salon
+   https://discord.com/oauth2/authorize?client_id=TON_APPLICATION_ID&scope=bot+applications.commands&permissions=117760&integration_type=0
    ```
 
-3. **Optionnel** (gratuit, pour `/osint lien`) :
-   - `VIRUSTOTAL_API_KEY` : crée un compte sur <https://www.virustotal.com>, puis clique sur ton avatar → **API key** ;
-   - `URLSCAN_API_KEY` : crée un compte sur <https://urlscan.io>, puis **Settings & API → New API key**.
+   Choisis ton serveur, continue, puis valide. Il faut être le propriétaire du serveur ou avoir la permission « Gérer le serveur ». Le bot demande seulement 5 permissions : voir les salons, envoyer des messages, intégrer des liens, joindre des fichiers et lire l'historique.
+8. Si le salon du webhook est **privé** : ouvre les paramètres du salon → **Permissions**, ajoute le rôle **Tekkit Watch** et autorise-le à voir le salon et à lire l'historique des messages.
 
-   Laisse vide si tu n'en veux pas : le bot marche très bien sans.
+### Étape 4 : copier deux identifiants dans Discord
 
-### Étape 5 : installer l'IA locale (Ollama), gratuite et optionnelle
+1. Dans l'application Discord, clique sur la **roue dentée** en bas à gauche (Paramètres utilisateur).
+2. Dans la barre de recherche en haut à gauche des paramètres, tape `développeur` et active l'interrupteur **Mode développeur**. (Selon ta version, il est dans la page « Avancés » ou « Développeur ».) Ferme les paramètres.
+3. **Ton identifiant** : envoie un message `test` dans un salon, fais un **clic droit sur ton pseudo** au-dessus de ce message → **Copier l'identifiant de l'utilisateur**. Colle-le dans le Bloc-notes.
+4. **L'identifiant du salon du webhook** : clic droit sur le **nom du salon** (dans la colonne de gauche) où « Tekkit | Rewards Logger » poste → **Copier l'identifiant du salon**. Colle-le dans le Bloc-notes.
 
-1. Télécharge Ollama sur <https://ollama.com/download> et installe-le. Il démarre tout seul (icône de lama près de l'horloge).
-2. Ouvre un terminal (touche **Windows**, tape `cmd`, **Entrée**) et télécharge le modèle conseillé :
+Ce sont des nombres d'environ 18 chiffres. Ne confonds pas avec l'identifiant du **serveur** (clic droit sur l'icône ronde).
+
+### Étape 5 : premier lancement (il crée le fichier `.env`)
+
+1. Dans le dossier du bot, **double-clique sur `lancer_bot.bat`**.
+   Une fenêtre bleue « Windows a protégé votre PC » ? Clique sur **Informations complémentaires**, puis **Exécuter quand même**.
+2. Au premier lancement, le Bloc-notes s'ouvre sur le fichier `.env`. Colle chaque valeur **juste après le signe `=`**, sans espace ni guillemets :
+   - `DISCORD_TOKEN=` → le token (étape 3, point 5) ;
+   - `OWNER_ID=` → ton identifiant (étape 4, point 3) ;
+   - `WEBHOOK_CHANNEL_ID=` → l'identifiant du salon (étape 4, point 4).
+
+   Ça ressemble à ceci (avec tes vrais nombres) :
 
    ```
-   ollama pull qwen3.5:4b
+   DISCORD_TOKEN=MTI3NDU2Nzg5MDEy.GaBcDe.xxxxxxxxxxxxxxxxxxxxxxxx
+   OWNER_ID=123456789012345678
+   WEBHOOK_CHANNEL_ID=987654321098765432
    ```
 
-   - **qwen3.5:4b** (modèle par défaut) : environ **3,4 Go** à télécharger. Il occupe environ **4 Go de RAM**, mais **seulement** quand tu poses une question, puis il se décharge tout seul au bout de 5 minutes. Il parle bien français et sait lire tes stats.
-   - Ton PC rame quand l'IA répond ? Prends le modèle plus léger :
+3. Fais **Ctrl+S** pour enregistrer (obligatoire : le Bloc-notes de Windows 11 peut se fermer sans enregistrer), puis ferme le Bloc-notes.
+4. Dans la fenêtre noire, appuie sur une touche : elle se ferme. C'est normal.
 
-     ```
-     ollama pull qwen3.5:2b
-     ```
+Les clés VirusTotal et urlscan.io (pour `/osint lien`) sont **gratuites et optionnelles** : laisse ces lignes vides pour l'instant.
 
-     puis choisis-le dans `/parametres` → 🤖 IA → *Modèle*. Tu peux aussi passer en mode **Léger** au même endroit.
-   - Si `qwen3.5` n'existe pas dans ta version d'Ollama : `ollama pull qwen3:4b` marche aussi.
+### Étape 6 : lancer le bot pour de vrai
 
-> L'IA ne tourne qu'**une question à la fois**, avec un nombre de cœurs limité, pour laisser le processeur à Roblox. Si Ollama est éteint, le bot continue de surveiller normalement.
+1. **Double-clique à nouveau sur `lancer_bot.bat`**.
+2. La première fois, il installe tout : **1 à 5 minutes**, avec beaucoup de texte en anglais. **Ne ferme pas la fenêtre.**
+3. Quand c'est prêt, la fenêtre affiche `✅ … commandes synchronisées sur le serveur …` et le bot écrit **« ✅ Surveillance lancée »** dans le salon du webhook.
+4. **Laisse la fenêtre ouverte** : la fermer arrête le bot.
 
-### Étape 6 : lancer le bot
+Message `[!] Corrige le problème indiqué juste au-dessus` ? Lis la ligne d'erreur, corrige le `.env` (le Bloc-notes s'ouvre tout seul), **Ctrl+S**, puis relance `lancer_bot.bat`.
 
-**Double-clique sur `lancer_bot.bat`.**
+### Étape 7 : tester dans Discord
 
-Au premier lancement, il crée un environnement Python et installe tout (quelques minutes). Ensuite le bot démarre et écrit **« ✅ Surveillance lancée »** dans le salon du webhook.
-
-Laisse la fenêtre ouverte : la fermer arrête le bot. S'il plante, il redémarre tout seul au bout de 10 secondes.
-
-### Étape 7 : tester
-
-Dans ton serveur Discord, tape :
+Dans un salon de ton serveur, tape `/` (sur un clavier belge : **Maj + la touche `:`**). La liste des commandes apparaît.
 
 | Commande | Ce que tu dois voir |
 |---|---|
 | `/aide` | la liste des commandes, avec un menu |
 | `/resume` | le résumé de tes comptes, avec des boutons |
 | `/parametres` | le panneau de réglages (toi seul peux l'ouvrir) |
-| `/ia-statut` | 🟢 si Ollama et le modèle sont prêts |
+| `/ia-statut` | l'état de l'IA (🔴 tant qu'Ollama n'est pas installé : c'est normal) |
+
+Les commandes n'apparaissent pas ? Clique dans Discord et fais **Ctrl+R**.
 
 Par défaut, les comptes surveillés sont `abslt98` et `yayaoui00`. Pour en ajouter ou en retirer (10 maximum) : `/parametres` → 👤 Comptes.
 
-### Étape 8 : démarrage automatique et hébergement 24 h/24
+### Étape 8 (optionnelle) : l'IA gratuite avec Ollama
 
-**Démarrer le bot avec Windows** : double-clique sur **`installer_demarrage_auto.bat`**. Le bot se lancera tout seul, en fenêtre réduite, à chaque démarrage du PC. Pour l'enlever, relance le même fichier et réponds **O**.
+1. Télécharge Ollama sur <https://ollama.com/download> (fichier `OllamaSetup.exe`) et installe-le. Pas besoin de compte. Il tourne ensuite en arrière-plan : son icône est près de l'horloge (clique sur la petite flèche **^** si tu ne la vois pas).
+2. Ouvre une **nouvelle** fenêtre noire (touche Windows, `cmd`, Entrée) et tape exactement :
+
+   ```
+   ollama pull qwen3.5:4b
+   ```
+
+   C'est environ **3,4 Go** à télécharger. Il faut un PC avec au moins **8 Go de RAM**. Le modèle n'utilise environ 4 Go de RAM que pendant les questions, puis se décharge tout seul après 5 minutes.
+3. Dans Discord, tape `/ia-statut` : tu dois voir 🟢.
+
+Sans carte graphique, une réponse prend environ **20 à 60 secondes** : c'est normal. Ton PC rame ? Prends le modèle léger (environ 1,4 Go) avec `ollama pull qwen3:1.7b`, puis choisis-le dans `/parametres` → 🤖 IA → *Modèle* (et mets le mode **Léger**).
+
+> Dans le menu de l'icône Ollama (en anglais), ne clique pas sur **Quit Ollama** : ça arrête l'IA. **Restart to update** installe une mise à jour.
+
+### Étape 9 (optionnelle) : démarrage automatique et hébergement 24 h/24
+
+**Démarrer le bot avec Windows** : quand tout marche, double-clique sur **`installer_demarrage_auto.bat`**. Le bot se lancera tout seul, en fenêtre réduite dans la barre des tâches, à chaque démarrage du PC. Ensuite, ne relance plus `lancer_bot.bat` à la main s'il tourne déjà : tu aurais deux bots et des alertes en double. Tu as déplacé le dossier ? Relance `installer_demarrage_auto.bat` et réponds **N** pour le refaire.
 
 **Héberger 24 h/24 sur un serveur (VPS)**, pour que le bot tourne même PC éteint :
 
@@ -126,7 +140,7 @@ Par défaut, les comptes surveillés sont `abslt98` et `yayaoui00`. Pour en ajou
    docker compose logs -f bot        # pour voir ce qui se passe (Ctrl+C pour quitter)
    ```
 
-4. **IA sur le serveur** : elle demande au moins **4 Go de RAM libres** (ou **2 à 3 Go** avec `qwen3.5:2b`). Si ton serveur en a assez :
+4. **IA sur le serveur** : il faut au moins **4 Go de RAM libres** (environ 2 Go avec `qwen3:1.7b`). Si ton serveur en a assez :
 
    ```bash
    docker compose --profile ia up -d --build
@@ -179,39 +193,53 @@ Usage **personnel, défensif et légal** uniquement (RGPD, droit belge). Tu rest
 
 ## 🆘 Problèmes fréquents
 
+**Windows bloque `lancer_bot.bat`**
+- Fenêtre bleue « Windows a protégé votre PC » : clique sur **Informations complémentaires**, puis **Exécuter quand même**.
+- Aucun bouton « Exécuter quand même » : supprime le dossier extrait, puis reprends l'étape 2 en cochant bien **Débloquer** dans les propriétés du ZIP **avant** l'extraction.
+- « Tu as lancé ce fichier depuis l'intérieur du ZIP » : fais d'abord **Extraire tout…** (étape 2, point 4).
+
+**« Il manque dans le fichier .env : … »**
+- Le `.env` n'a pas été enregistré : rouvre-le, complète-le, fais **Ctrl+S**, puis relance `lancer_bot.bat`.
+- Pas d'espace autour du `=`, pas de guillemets, pas de `<@…>` : uniquement les chiffres pour les identifiants.
+
 **Les commandes `/` n'apparaissent pas**
-- Attends une minute, puis redémarre Discord (Ctrl+R).
-- Vérifie que le bot a été invité avec le scope `applications.commands` (lien de l'étape 2).
+- La fenêtre noire du bot doit être ouverte et afficher `✅ … commandes synchronisées sur le serveur …`.
+- Clique dans Discord et fais **Ctrl+R**. Sinon, quitte complètement Discord (clic droit sur son icône près de l'horloge → Quitter) et rouvre-le.
 - Vérifie `WEBHOOK_CHANNEL_ID` : les commandes sont installées sur le serveur de **ce** salon.
 - En dernier recours, tape `/sync`.
 
-**Le bot est hors ligne**
+**Le bot est hors ligne ou s'arrête**
 - La fenêtre de `lancer_bot.bat` doit rester ouverte. Lis le message affiché dedans.
-- « Token Discord refusé » : refais **Reset Token** (étape 2) et colle le nouveau dans `.env`.
-- « Active MESSAGE CONTENT INTENT » : étape 2, point 3.
+- « Token Discord refusé » : refais **Reset Token** (étape 3, point 5) et colle le nouveau dans `.env`. Attention à ne pas copier le « Client Secret » ou la « Public Key » : ce ne sont pas des tokens.
+- « Active MESSAGE CONTENT INTENT » : étape 3, point 6 (n'oublie pas **Save Changes**).
 - « Discord injoignable » : problème d'internet. Le bot réessaie tout seul.
+- « Le bot plante en boucle » : lis l'erreur au-dessus. Si elle parle de `python.exe` introuvable, supprime le dossier `.venv` et relance `lancer_bot.bat`.
 
 **« Salon WEBHOOK_CHANNEL_ID introuvable »**
-- L'ID doit être celui du **salon** (pas du serveur ni du message).
-- Le bot doit avoir le droit de **voir** ce salon (permissions du salon ou de la catégorie).
+- L'identifiant doit être celui du **salon** (pas du serveur ni d'un message).
+- Le bot doit avoir le droit de **voir** ce salon (étape 3, point 8).
 
 **Le bot ne voit pas les missions**
-- Vérifie le *Message Content Intent* (étape 2).
+- Vérifie le *Message Content Intent* (étape 3, point 6).
 - Le nom du compte dans `/parametres` → 👤 Comptes doit être **exactement** celui affiché par le webhook (`Bob` n'est pas `Bob2`).
 
 **« Ollama ne répond pas »**
-- Lance l'application Ollama (menu Démarrer → *Ollama*). L'icône du lama doit être près de l'horloge.
+- Lance l'application Ollama (menu Démarrer → *Ollama*). Son icône doit être près de l'horloge (flèche **^**).
+- « `'ollama' n'est pas reconnu…` » : ferme la fenêtre noire et ouvres-en une **nouvelle** après l'installation d'Ollama.
+- « `file does not exist` » : faute de frappe dans le nom du modèle. Copie-colle `ollama pull qwen3.5:4b`.
 - Vérifie avec `/ia-statut`.
-- Le modèle n'est pas téléchargé ? Fais `ollama pull qwen3.5:4b` dans un terminal.
 
 **Le PC rame**
-- `/parametres` → 🤖 IA → mode **Léger**, et/ou modèle `qwen3.5:2b`.
+- `/parametres` → 🤖 IA → mode **Léger**, et modèle `qwen3:1.7b` (à télécharger avec `ollama pull qwen3:1.7b`).
 - Réduis « Décharger le modèle après ... min » (bouton ⚙️ Avancé) à 1 ou 2 minutes.
 - Tu peux aussi désactiver complètement l'IA au même endroit : la surveillance n'en a pas besoin.
 
 **L'installation des dépendances échoue**
-- Installe **Python 3.13** (étape 1) et relance `lancer_bot.bat` : il le choisira automatiquement.
-- Si besoin, supprime le dossier `.venv` pour repartir de zéro.
+- Vérifie ta connexion internet et relance `lancer_bot.bat` : il repart de zéro tout seul.
+- Ton Python doit être en **64 bits** (le script te prévient sinon).
+
+**Mettre le bot à jour**
+- Télécharge le nouveau ZIP, débloque-le, puis extrais-le **dans le même dossier** en acceptant de **remplacer les fichiers**. Ton `.env` et ton historique (`data`) sont conservés.
 
 **Où sont mes données ?**
 - Dans le dossier `data/` : `tekkit.db` (missions, réglages...) et `logs/bot.log`. Les données de plus de 90 jours sont supprimées automatiquement (réglable dans `/parametres` → ⏱️ Temps → 🗑️ Conservation).

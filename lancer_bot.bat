@@ -9,68 +9,101 @@ echo     Tekkit Watch - lancement du bot
 echo  =============================================
 echo.
 
+rem ----- 0. Le ZIP doit avoir été extrait -----
+if exist "requirements.txt" goto dossier_ok
+echo  [!] Tu as lancé ce fichier depuis l'intérieur du ZIP.
+echo  Ferme cette fenêtre, fais un clic droit sur le ZIP,
+echo  choisis "Extraire tout..." puis "Extraire",
+echo  et relance lancer_bot.bat depuis le dossier extrait.
+echo.
+pause
+exit /b 1
+:dossier_ok
+
 rem ----- 1. Le fichier .env existe-t-il ? -----
 if exist ".env" goto env_ok
-if exist ".env.example" copy ".env.example" ".env" >nul
-echo  [!] Il manque le fichier .env
+copy ".env.example" ".env" >nul
+echo  [!] Premier lancement : il faut remplir le fichier .env
 echo.
 echo  Je viens de le créer et je l'ouvre dans le Bloc-notes.
-echo  Remplis DISCORD_TOKEN, OWNER_ID et WEBHOOK_CHANNEL_ID,
-echo  enregistre avec Ctrl+S, ferme le Bloc-notes,
-echo  puis relance lancer_bot.bat
+echo  1. Remplis DISCORD_TOKEN, OWNER_ID et WEBHOOK_CHANNEL_ID
+echo  2. Enregistre avec Ctrl+S
+echo  3. Ferme le Bloc-notes
+echo  4. Relance lancer_bot.bat
 echo.
 start "" notepad ".env"
 pause
 exit /b 1
 :env_ok
 
-rem ----- 2. Trouver Python : de préférence 3.13 ou 3.12 -----
+rem ----- 2. Trouver Python 3.12 ou plus récent -----
 set "PY="
 where py >nul 2>nul
-if errorlevel 1 goto sans_launcher
+if errorlevel 1 goto sans_py
 py -3.13 -c "pass" >nul 2>nul && set "PY=py -3.13"
 if not defined PY py -3.12 -c "pass" >nul 2>nul && set "PY=py -3.12"
-if not defined PY py -3 -c "pass" >nul 2>nul && set "PY=py -3"
-:sans_launcher
-if not defined PY (
-    where python >nul 2>nul && set "PY=python"
-)
-if not defined PY (
-    echo  [!] Python est introuvable.
-    echo  Installe-le depuis https://www.python.org/downloads/
-    echo  et coche bien la case "Add python.exe to PATH".
-    echo.
-    pause
-    exit /b 1
-)
+if not defined PY py -3 -c "import sys; sys.exit(0 if sys.version_info >= (3, 12) else 1)" >nul 2>nul && set "PY=py -3"
+:sans_py
+if not defined PY python -c "import sys; sys.exit(0 if sys.version_info >= (3, 12) else 1)" >nul 2>nul && set "PY=python"
+if defined PY goto python_ok
+echo  [!] Python 3.12 ou plus récent est introuvable.
+echo  Installe "Python Install Manager" depuis le Microsoft Store,
+echo  puis ouvre un terminal et tape :  py install 3.15
+echo  Ensuite, relance lancer_bot.bat
+echo.
+pause
+exit /b 1
+:python_ok
 
-rem ----- 3. Environnement virtuel + dépendances -----
-if exist ".venv\Scripts\python.exe" goto venv_ok
+%PY% -c "import struct, sys; sys.exit(0 if struct.calcsize('P') == 8 else 1)" >nul 2>nul
+if not errorlevel 1 goto bits_ok
+echo  [!] Ton Python est en 32 bits : il faut la version 64 bits.
+echo  Installe "Python Install Manager" depuis le Microsoft Store,
+echo  puis tape dans un terminal :  py install 3.15
+echo.
+pause
+exit /b 1
+:bits_ok
+
+rem ----- 3. Environnement virtuel (recréé s'il est abîmé) -----
+if not exist ".venv\Scripts\python.exe" goto creer_venv
+".venv\Scripts\python.exe" -m pip --version >nul 2>nul
+if not errorlevel 1 goto venv_ok
+echo  L'environnement Python existant est abîmé : je le recrée...
+rmdir /s /q ".venv"
+:creer_venv
 echo  Première installation : création de l'environnement Python...
+echo  Ça peut prendre une minute, ne ferme pas la fenêtre.
 %PY% -m venv .venv
-if errorlevel 1 (
-    echo  [!] Impossible de créer l'environnement virtuel.
-    pause
-    exit /b 1
-)
+if not errorlevel 1 goto venv_ok
+echo.
+echo  [!] Impossible de créer l'environnement Python.
+echo      Lis l'erreur ci-dessus, puis relance lancer_bot.bat
+if exist ".venv" rmdir /s /q ".venv"
+pause
+exit /b 1
 :venv_ok
 
+rem ----- 4. Dépendances (réinstallées si requirements.txt a changé) -----
 fc /b "requirements.txt" ".venv\requirements.installe" >nul 2>nul
 if not errorlevel 1 goto deps_ok
-echo  Installation des dépendances, ça peut prendre quelques minutes...
-".venv\Scripts\python.exe" -m pip install --upgrade pip >nul
+echo  Installation des dépendances : quelques minutes, beaucoup de texte en anglais.
+echo  C'est normal, ne ferme pas la fenêtre.
+".venv\Scripts\python.exe" -m pip install --upgrade pip >nul 2>nul
 ".venv\Scripts\python.exe" -m pip install -r requirements.txt
-if errorlevel 1 (
-    echo.
-    echo  [!] L'installation a échoué. Voir le README, section Problèmes fréquents.
-    echo      Astuce : installe Python 3.13, le script le choisira automatiquement.
-    pause
-    exit /b 1
-)
+if not errorlevel 1 goto deps_installees
+echo.
+echo  [!] L'installation a échoué. Vérifie ta connexion internet,
+echo      puis relance lancer_bot.bat : je repartirai de zéro.
+rmdir /s /q ".venv"
+pause
+exit /b 1
+:deps_installees
 copy /y "requirements.txt" ".venv\requirements.installe" >nul
 :deps_ok
 
-rem ----- 4. Lancement (relance automatique en cas de plantage) -----
+rem ----- 5. Lancement (relance automatique, 5 essais maximum) -----
+set "ESSAIS=0"
 :lancer
 echo.
 echo  Bot en cours d'exécution. Ferme cette fenêtre pour l'arrêter.
@@ -78,16 +111,34 @@ echo.
 ".venv\Scripts\python.exe" -m bot.main
 set "CODE=%errorlevel%"
 if "%CODE%"=="0" goto fin
-if "%CODE%"=="2" (
-    echo.
-    echo  [!] Corrige le problème ci-dessus, puis relance lancer_bot.bat
-    pause
-    exit /b 2
-)
+if "%CODE%"=="2" goto a_corriger
+rem Code 3 = plantage après un long fonctionnement normal : on remet le compteur à zéro
+if "%CODE%"=="3" set "ESSAIS=0"
+set /a ESSAIS+=1
+if %ESSAIS% GEQ 5 goto trop_de_plantages
 echo.
-echo  Le bot s'est arrêté de façon inattendue. Nouveau démarrage dans 10 secondes...
+echo  Le bot s'est arrêté de façon inattendue, essai %ESSAIS% sur 5.
+echo  Nouveau démarrage dans 10 secondes...
 timeout /t 10 /nobreak >nul
 goto lancer
+
+:a_corriger
+echo.
+echo  [!] Corrige le problème indiqué juste au-dessus.
+echo      J'ouvre le fichier .env : modifie-le, fais Ctrl+S, ferme-le,
+echo      puis relance lancer_bot.bat
+start "" notepad ".env"
+pause
+exit /b 2
+
+:trop_de_plantages
+echo.
+echo  [!] Le bot plante en boucle. Lis l'erreur ci-dessus
+echo      et le fichier data\logs\bot.log
+echo      Si l'erreur parle de python.exe introuvable :
+echo      supprime le dossier .venv puis relance lancer_bot.bat
+pause
+exit /b 1
 
 :fin
 echo  Bot arrêté.

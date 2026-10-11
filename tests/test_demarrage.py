@@ -156,3 +156,34 @@ async def test_sync_annonce_et_rattrapage(bot):
         side_effect=discord.NotFound(SimpleNamespace(status=404, reason="x"), "inconnu")
     )
     assert await bot.synchroniser_commandes() == 0
+
+
+def test_codes_de_sortie_du_lanceur(monkeypatch, tmp_path):
+    """main() renvoie 2 (à corriger), 3 (plantage après fonctionnement normal) ou 1."""
+    import bot.main as m
+
+    monkeypatch.setattr(m, "configurer_logs", lambda secrets: None)
+    monkeypatch.setattr(
+        m.Config,
+        "depuis_env",
+        classmethod(lambda cls: Config(token="x" * 30, owner_id=1, webhook_channel_id=2)),
+    )
+
+    class FauxBot:
+        erreur: BaseException = RuntimeError("boum")
+
+        def __init__(self, config):
+            pass
+
+        def run(self, token, log_handler=None):
+            raise FauxBot.erreur
+
+    monkeypatch.setattr(m, "TekkitBot", FauxBot)
+    assert m.main() == 1  # plantage immédiat : compte comme « en boucle »
+    import itertools
+
+    horloge = itertools.chain([0.0], itertools.repeat(10_000.0))
+    monkeypatch.setattr(m.time, "monotonic", lambda: next(horloge))
+    assert m.main() == m.CODE_PLANTAGE_APRES_FONCTIONNEMENT
+    FauxBot.erreur = m.discord.LoginFailure("token")
+    assert m.main() == m.CODE_A_CORRIGER

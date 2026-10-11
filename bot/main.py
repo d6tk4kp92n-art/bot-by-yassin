@@ -259,6 +259,10 @@ def proprietaire_seulement() -> Any:
 # Code de sortie quand l'utilisateur doit corriger quelque chose (.env, token, intent) :
 # lancer_bot.bat s'arrête au lieu de relancer le bot en boucle.
 CODE_A_CORRIGER = 2
+# Plantage inattendu après au moins 10 minutes de fonctionnement normal :
+# lancer_bot.bat relance le bot sans compter ce plantage comme « en boucle ».
+CODE_PLANTAGE_APRES_FONCTIONNEMENT = 3
+DUREE_FONCTIONNEMENT_NORMAL_S = 600
 
 
 def main() -> int:
@@ -271,6 +275,7 @@ def main() -> int:
     attente = 15
     while True:
         bot = TekkitBot(config)
+        debut = time.monotonic()
         try:
             bot.run(config.token, log_handler=None)  # reconnexion automatique incluse
             return 0
@@ -297,6 +302,13 @@ def main() -> int:
             except KeyboardInterrupt:
                 return 0
             attente = min(attente * 2, 300)
+        except Exception:
+            log.exception(
+                "💥 Le bot a planté de façon inattendue (détails ci-dessous et dans data/logs)"
+            )
+            if time.monotonic() - debut >= DUREE_FONCTIONNEMENT_NORMAL_S:
+                return CODE_PLANTAGE_APRES_FONCTIONNEMENT
+            return 1
 
 
 if __name__ == "__main__":

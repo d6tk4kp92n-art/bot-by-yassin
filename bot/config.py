@@ -87,7 +87,7 @@ SENSIBILITES: dict[str, str] = {
 
 # Modèles Ollama conseillés (gratuits, open source, tournent sur processeur).
 MODELE_IA_DEFAUT = "qwen3.5:4b"
-MODELE_IA_LEGER = "qwen3.5:2b"
+MODELE_IA_LEGER = "qwen3:1.7b"  # ~1,4 Go, sait utiliser les outils, pour PC modestes
 
 MODES_IA: dict[str, str] = {
     "leger": "Léger (économise le PC)",
