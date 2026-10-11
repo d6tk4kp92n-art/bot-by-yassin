@@ -1,2 +1,3 @@
-# Les fichiers .bat doivent garder des fins de ligne Windows
-*.bat text eol=crlf
+# Les fichiers .bat sont gardés tels quels (fins de ligne Windows CRLF),
+# même dans un téléchargement ZIP depuis GitHub.
+*.bat -text
