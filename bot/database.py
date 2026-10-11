@@ -285,8 +285,12 @@ class Database:
         async with self.db.execute("SELECT DISTINCT compte FROM missions ORDER BY compte") as cur:
             return [r[0] for r in await cur.fetchall()]
 
-    async def nombre_missions(self) -> int:
-        async with self.db.execute("SELECT COUNT(*) FROM missions") as cur:
+    async def nombre_missions(self, compte: str | None = None) -> int:
+        if compte is None:
+            sql, params = "SELECT COUNT(*) FROM missions", ()
+        else:
+            sql, params = "SELECT COUNT(*) FROM missions WHERE compte = ? COLLATE NOCASE", (compte,)
+        async with self.db.execute(sql, params) as cur:
             ligne = await cur.fetchone()
         return int(ligne[0]) if ligne else 0
 

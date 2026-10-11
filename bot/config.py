@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from dotenv import load_dotenv
+from dotenv import dotenv_values
 
 # Dossier racine du projet (celui qui contient "bot/")
 RACINE = Path(__file__).resolve().parent.parent
@@ -158,9 +158,14 @@ def defauts() -> dict[str, Any]:
     return copy.deepcopy(DEFAUTS)
 
 
-def _entier_env(nom: str) -> int | None:
-    """Lit une variable d'environnement qui doit être un nombre entier."""
-    valeur = (os.getenv(nom) or "").strip()
+def _lire(nom: str, fichier: dict[str, str | None]) -> str:
+    """Variable d'environnement (Docker, Windows) en priorité, sinon la ligne du fichier .env."""
+    return (os.environ.get(nom) or fichier.get(nom) or "").strip()
+
+
+def _entier_env(nom: str, fichier: dict[str, str | None]) -> int | None:
+    """Lit une variable qui doit être un nombre entier (ID Discord)."""
+    valeur = _lire(nom, fichier)
     if not valeur:
         return None
     if not valeur.isdigit():
@@ -182,15 +187,16 @@ class Config:
     @classmethod
     def depuis_env(cls, chemin_env: Path | None = None) -> Config:
         """Charge le fichier .env et vérifie que tout ce qui est obligatoire est là."""
-        load_dotenv(chemin_env or RACINE / ".env")
-        token = (os.getenv("DISCORD_TOKEN") or "").strip()
+        chemin = chemin_env or RACINE / ".env"
+        fichier = dict(dotenv_values(chemin)) if chemin.exists() else {}
+        token = _lire("DISCORD_TOKEN", fichier)
         manquants = []
         if not token:
             manquants.append("DISCORD_TOKEN")
-        owner = _entier_env("OWNER_ID")
+        owner = _entier_env("OWNER_ID", fichier)
         if owner is None:
             manquants.append("OWNER_ID")
-        salon = _entier_env("WEBHOOK_CHANNEL_ID")
+        salon = _entier_env("WEBHOOK_CHANNEL_ID", fichier)
         if salon is None:
             manquants.append("WEBHOOK_CHANNEL_ID")
         if manquants:
@@ -203,9 +209,9 @@ class Config:
             token=token,
             owner_id=owner,
             webhook_channel_id=salon,
-            ollama_url=(os.getenv("OLLAMA_URL") or "http://localhost:11434").strip().rstrip("/"),
-            virustotal_key=(os.getenv("VIRUSTOTAL_API_KEY") or "").strip() or None,
-            urlscan_key=(os.getenv("URLSCAN_API_KEY") or "").strip() or None,
+            ollama_url=(_lire("OLLAMA_URL", fichier) or "http://localhost:11434").rstrip("/"),
+            virustotal_key=_lire("VIRUSTOTAL_API_KEY", fichier) or None,
+            urlscan_key=_lire("URLSCAN_API_KEY", fichier) or None,
         )
 
     def secrets(self) -> list[str]:

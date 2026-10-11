@@ -385,3 +385,73 @@ def formater_duree(secondes: float | None) -> str:
     if h < 48:
         return f"{h} h {reste // 60:02d} min"
     return f"{h // 24} j {h % 24} h"
+
+
+# ---------------------------------------------------------------- Périodes
+
+PERIODES: dict[str, str] = {
+    "session": "Session (depuis le démarrage du bot)",
+    "aujourdhui": "Aujourd'hui",
+    "7j": "7 derniers jours",
+    "30j": "30 derniers jours",
+    "tout": "Depuis toujours",
+}
+
+
+def bornes_periode(
+    periode: str, maintenant: float, demarrage: float, premiere: float | None = None
+) -> tuple[float, float]:
+    """Renvoie (début, fin) d'une période. `premiere` = date de la toute première mission."""
+    if periode == "session":
+        return demarrage, maintenant
+    if periode == "aujourdhui":
+        minuit = datetime.fromtimestamp(maintenant, FUSEAU).replace(hour=0, minute=0, second=0, microsecond=0)
+        return minuit.timestamp(), maintenant
+    if periode == "7j":
+        return maintenant - 7 * 86400, maintenant
+    if periode == "30j":
+        return maintenant - 30 * 86400, maintenant
+    return (premiere if premiere is not None else demarrage), maintenant
+
+
+# ---------------------------------------------------------------- Records
+
+
+def gold_par_jour(missions: Sequence[Mission]) -> dict[str, int]:
+    """Gold gagné par jour (heure belge) : {"2026-07-01": 123456}."""
+    jours: dict[str, int] = defaultdict(int)
+    for m in missions:
+        jours[datetime.fromtimestamp(m.horodatage, FUSEAU).date().isoformat()] += m.gold or 0
+    return dict(jours)
+
+
+def records_battus(compte: str, periode: Sequence[Mission], avant: Sequence[Mission]) -> list[str]:
+    """Records battus pendant `periode` par rapport à tout ce qui s'est passé `avant`."""
+    records = []
+    if not periode or not avant:
+        return records  # pas de record possible sans historique pour comparer
+    meilleur = max(periode, key=lambda m: m.gold or 0)
+    ancien = max((m.gold or 0 for m in avant), default=0)
+    if (meilleur.gold or 0) > ancien:
+        records.append(
+            f"💰 **{compte}** : record de gold en une mission → {formater_nombre(meilleur.gold)} "
+            f"(ancien : {formater_nombre(ancien)})"
+        )
+    jours_periode = gold_par_jour(periode)
+    jours_avant = gold_par_jour(avant)
+    if jours_periode and jours_avant:
+        jour, total = max(jours_periode.items(), key=lambda p: p[1])
+        ancien_jour = max((v for k, v in jours_avant.items() if k != jour), default=0)
+        if ancien_jour and total > ancien_jour:
+            records.append(
+                f"📅 **{compte}** : meilleure journée → {formater_nombre(total)} gold le "
+                f"{datetime.fromisoformat(jour).strftime('%d/%m')} (ancien : {formater_nombre(ancien_jour)})"
+            )
+    durees = [m.duree_s for m in periode if m.duree_s]
+    durees_avant = [m.duree_s for m in avant if m.duree_s]
+    if durees and durees_avant and min(durees) < min(durees_avant):
+        records.append(
+            f"⏱️ **{compte}** : mission la plus rapide → {formater_duree(min(durees))} "
+            f"(ancien : {formater_duree(min(durees_avant))})"
+        )
+    return records

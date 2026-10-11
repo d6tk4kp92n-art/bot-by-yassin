@@ -137,3 +137,29 @@ def test_formater_nombre():
     assert formater_nombre(37807) == "37 807"
     assert formater_nombre(12) == "12"
     assert formater_nombre(None) == "—"
+
+
+def test_bornes_periode():
+    from datetime import datetime
+
+    from bot.calculs import bornes_periode
+    from bot.config import FUSEAU
+
+    midi = datetime(2026, 7, 1, 12, 0, tzinfo=FUSEAU).timestamp()
+    debut, fin = bornes_periode("aujourdhui", midi, demarrage=0)
+    assert fin - debut == 12 * 3600
+    assert bornes_periode("session", 100, 40) == (40, 100)
+    assert bornes_periode("7j", 10 * 86400, 0) == (3 * 86400, 10 * 86400)
+    assert bornes_periode("tout", 100, 40, premiere=5) == (5, 100)
+
+
+def test_records_battus():
+    from bot.calculs import records_battus
+
+    avant = [Mission(message_id=i, compte="a", horodatage=i * 60, gold=1000, duree_s=70) for i in range(10)]
+    periode = [Mission(message_id=100 + i, compte="a", horodatage=86400 * 2 + i * 60, gold=1500, duree_s=60)
+               for i in range(20)]
+    records = records_battus("a", periode, avant)
+    assert len(records) == 3
+    assert records_battus("a", periode, []) == []
+    assert records_battus("a", avant, periode) == []
