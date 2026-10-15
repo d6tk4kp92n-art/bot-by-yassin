@@ -163,6 +163,7 @@ def test_codes_de_sortie_du_lanceur(monkeypatch, tmp_path):
     import bot.main as m
 
     monkeypatch.setattr(m, "configurer_logs", lambda secrets: None)
+    monkeypatch.setattr(m, "DOSSIER_DATA", tmp_path)
     monkeypatch.setattr(
         m.Config,
         "depuis_env",
@@ -187,3 +188,56 @@ def test_codes_de_sortie_du_lanceur(monkeypatch, tmp_path):
     assert m.main() == m.CODE_PLANTAGE_APRES_FONCTIONNEMENT
     FauxBot.erreur = m.discord.LoginFailure("token")
     assert m.main() == m.CODE_A_CORRIGER
+    FauxBot.erreur = m.discord.PrivilegedIntentsRequired(None)
+    assert m.main() == m.CODE_REGLAGE_PORTAIL  # se corrige sur le portail, pas dans .env
+
+
+def test_panne_discord_au_demarrage_reessaie(monkeypatch, tmp_path):
+    """Une erreur 5xx de Discord pendant la connexion = panne passagère, pas un plantage."""
+    from types import SimpleNamespace
+
+    import bot.main as m
+
+    monkeypatch.setattr(m, "configurer_logs", lambda secrets: None)
+    monkeypatch.setattr(m, "DOSSIER_DATA", tmp_path)
+    monkeypatch.setattr(
+        m.Config,
+        "depuis_env",
+        classmethod(lambda cls: Config(token="x" * 30, owner_id=1, webhook_channel_id=2)),
+    )
+    attentes = []
+    monkeypatch.setattr(m.time, "sleep", attentes.append)
+    essais = []
+
+    class FauxBot:
+        def __init__(self, config):
+            pass
+
+        def run(self, token, log_handler=None):
+            essais.append(1)
+            if len(essais) < 3:
+                raise m.discord.DiscordServerError(SimpleNamespace(status=503, reason="x"), "panne")
+
+    monkeypatch.setattr(m, "TekkitBot", FauxBot)
+    assert m.main() == 0
+    assert len(essais) == 3 and attentes == [15, 30]
+
+
+def test_un_seul_bot_a_la_fois(monkeypatch, tmp_path):
+    import bot.main as m
+
+    premier = m.VerrouInstance(tmp_path / "bot.lock")
+    assert premier.prendre()
+    second = m.VerrouInstance(tmp_path / "bot.lock")
+    assert not second.prendre()
+    # main() refuse de lancer un 2e bot, avec un code dédié pour lancer_bot.bat
+    monkeypatch.setattr(m, "DOSSIER_DATA", tmp_path)
+    monkeypatch.setattr(
+        m.Config,
+        "depuis_env",
+        classmethod(lambda cls: Config(token="x" * 30, owner_id=1, webhook_channel_id=2)),
+    )
+    assert m.main() == m.CODE_DEJA_LANCE
+    premier.liberer()
+    assert second.prendre()  # libéré : on peut relancer
+    second.liberer()

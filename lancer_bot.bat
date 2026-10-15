@@ -37,6 +37,7 @@ exit /b 1
 :env_ok
 
 rem ----- 2. Trouver Python 3.12 ou plus récent -----
+echo  Recherche de Python : la première fois, ça peut prendre une minute...
 set "PY="
 where py >nul 2>nul
 if errorlevel 1 goto sans_py
@@ -48,7 +49,8 @@ if not defined PY python -c "import sys; sys.exit(0 if sys.version_info >= (3, 1
 if defined PY goto python_ok
 echo  [!] Python 3.12 ou plus récent est introuvable.
 echo  Installe "Python Install Manager" depuis le Microsoft Store,
-echo  puis ouvre un terminal et tape :  py install 3.15
+echo  puis ouvre une fenêtre noire : touche Windows, tape cmd, Entrée,
+echo  et tape :  pymanager install 3.15
 echo  Ensuite, relance lancer_bot.bat
 echo.
 pause
@@ -59,7 +61,8 @@ exit /b 1
 if not errorlevel 1 goto bits_ok
 echo  [!] Ton Python est en 32 bits : il faut la version 64 bits.
 echo  Installe "Python Install Manager" depuis le Microsoft Store,
-echo  puis tape dans un terminal :  py install 3.15
+echo  puis ouvre une fenêtre noire : touche Windows, tape cmd, Entrée,
+echo  et tape :  pymanager install 3.15
 echo.
 pause
 exit /b 1
@@ -112,6 +115,8 @@ echo.
 set "CODE=%errorlevel%"
 if "%CODE%"=="0" goto fin
 if "%CODE%"=="2" goto a_corriger
+if "%CODE%"=="4" goto a_corriger_portail
+if "%CODE%"=="5" goto deja_lance
 rem Code 3 = plantage après un long fonctionnement normal : on remet le compteur à zéro
 if "%CODE%"=="3" set "ESSAIS=0"
 set /a ESSAIS+=1
@@ -125,11 +130,28 @@ goto lancer
 :a_corriger
 echo.
 echo  [!] Corrige le problème indiqué juste au-dessus.
-echo      J'ouvre le fichier .env : modifie-le, fais Ctrl+S, ferme-le,
-echo      puis relance lancer_bot.bat
+echo      S'il parle du token : refais "Reset Token" sur le site de Discord.
+echo      J'ouvre le fichier .env : corrige-le, fais Ctrl+S, ferme son onglet,
+echo      appuie sur une touche ici, puis relance lancer_bot.bat
 start "" notepad ".env"
 pause
 exit /b 2
+
+:a_corriger_portail
+echo.
+echo  [!] Ton fichier .env est bon : le réglage manquant est sur le site de Discord.
+echo      Page Bot, active "Message Content Intent", clique "Save Changes",
+echo      puis relance lancer_bot.bat
+pause
+exit /b 2
+
+:deja_lance
+echo.
+echo  [!] Le bot tourne déjà : cherche la fenêtre "Tekkit Watch"
+echo      dans la barre des tâches, elle est peut-être réduite.
+echo      Il ne faut qu'un seul bot à la fois.
+pause
+exit /b 1
 
 :trop_de_plantages
 echo.

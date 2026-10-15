@@ -17,7 +17,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from bot.config import CHEMIN_BASE, DOSSIER_LOGS, VERSION, Config
+from bot.config import CHEMIN_BASE, DOSSIER_DATA, DOSSIER_LOGS, VERSION, Config
 from bot.database import Database
 from bot.moteur_surveillance import MoteurSurveillance
 from bot.reglages import Reglages
@@ -263,6 +263,45 @@ CODE_A_CORRIGER = 2
 # lancer_bot.bat relance le bot sans compter ce plantage comme « en boucle ».
 CODE_PLANTAGE_APRES_FONCTIONNEMENT = 3
 DUREE_FONCTIONNEMENT_NORMAL_S = 600
+# Réglage à faire sur le portail développeur Discord (pas dans .env).
+CODE_REGLAGE_PORTAIL = 4
+# Un autre Tekkit Watch tourne déjà sur ce PC.
+CODE_DEJA_LANCE = 5
+
+
+class VerrouInstance:
+    """Empêche de lancer deux bots en même temps (alertes en double, fausses disparitions).
+
+    Le verrou est libéré automatiquement par le système quand le programme s'arrête,
+    même s'il plante."""
+
+    def __init__(self, chemin: Path) -> None:
+        self.chemin = chemin
+        self._fichier: Any = None
+
+    def prendre(self) -> bool:
+        self.chemin.parent.mkdir(parents=True, exist_ok=True)
+        fichier = open(self.chemin, "a+")  # noqa: SIM115 (gardé ouvert tant que le bot tourne)
+        try:
+            if sys.platform == "win32":
+                import msvcrt
+
+                fichier.seek(0)
+                msvcrt.locking(fichier.fileno(), msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(fichier.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            fichier.close()
+            return False
+        self._fichier = fichier
+        return True
+
+    def liberer(self) -> None:
+        if self._fichier is not None:
+            self._fichier.close()
+            self._fichier = None
 
 
 def main() -> int:
@@ -271,6 +310,20 @@ def main() -> int:
     except ValueError as exc:
         print(f"\n❌ {exc}\n")
         return CODE_A_CORRIGER
+    verrou = VerrouInstance(DOSSIER_DATA / "bot.lock")
+    if not verrou.prendre():
+        print(
+            "\n❌ Tekkit Watch tourne déjà sur ce PC : regarde dans la barre des tâches"
+            " s'il y a une fenêtre « Tekkit Watch » (souvent réduite).\n"
+        )
+        return CODE_DEJA_LANCE
+    try:
+        return _boucle_principale(config)
+    finally:
+        verrou.liberer()
+
+
+def _boucle_principale(config: Config) -> int:
     configurer_logs(config.secrets())
     attente = 15
     while True:
@@ -287,13 +340,19 @@ def main() -> int:
         except discord.PrivilegedIntentsRequired:
             log.error(
                 "❌ Active « MESSAGE CONTENT INTENT » sur https://discord.com/developers/applications "
-                "(ton application → Bot → Privileged Gateway Intents), puis relance."
+                "(ton application → Bot → Privileged Gateway Intents → Save Changes), puis relance."
             )
-            return CODE_A_CORRIGER
+            return CODE_REGLAGE_PORTAIL
         except KeyboardInterrupt:
             return 0
-        except (aiohttp.ClientError, OSError, discord.GatewayNotFound) as exc:
-            # Pas d'internet (box redémarrée, PC qui sort de veille...) : on réessaie tout seul
+        except (
+            aiohttp.ClientError,
+            OSError,
+            discord.GatewayNotFound,
+            discord.DiscordServerError,
+        ) as exc:
+            # Pas d'internet (box redémarrée, PC qui sort de veille...) ou panne passagère
+            # des serveurs Discord : on réessaie tout seul
             log.warning(
                 "🌐 Discord injoignable (%s). Nouvel essai dans %d s…", type(exc).__name__, attente
             )

@@ -14,9 +14,11 @@ set "RACCOURCI=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\Tekkit Wa
 
 if not exist "%RACCOURCI%" goto creer
 echo  Le démarrage automatique est déjà installé.
-echo    O = le retirer
-echo    N = le refaire pour ce dossier-ci
-choice /c ON /m " Ton choix"
+echo    R = le retirer
+echo    F = le refaire pour ce dossier-ci
+echo    A = annuler, ne rien changer
+choice /c RFA /m " Ton choix"
+if errorlevel 3 goto fin
 if errorlevel 2 goto creer
 del "%RACCOURCI%"
 echo.
@@ -25,7 +27,8 @@ goto fin
 
 :creer
 if exist "%RACCOURCI%" del "%RACCOURCI%"
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+if not exist "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\" mkdir "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
+"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -Command ^
   "$s = (New-Object -ComObject WScript.Shell).CreateShortcut($env:RACCOURCI);" ^
   "$s.TargetPath = (Join-Path (Get-Location) 'lancer_bot.bat');" ^
   "$s.WorkingDirectory = (Get-Location).Path;" ^
@@ -36,12 +39,17 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
 if not exist "%RACCOURCI%" goto echec
 echo.
 echo  C'est fait ! Le bot se lancera tout seul, en fenêtre réduite,
-echo  à chaque démarrage de Windows.
-echo  Pour l'enlever : relance ce fichier et réponds O.
+echo  dès que tu ouvriras ta session Windows, après ton code PIN.
+echo  Pour l'enlever : relance ce fichier et réponds R.
 goto fin
 
 :echec
-echo  [!] Impossible de créer le raccourci. Voir le README.
+echo  [!] Windows a refusé de créer le raccourci. Fais-le à la main :
+echo      1. Le dossier Démarrage va s'ouvrir.
+echo      2. Dans le dossier du bot, fais un clic droit sur lancer_bot.bat,
+echo         "Afficher d'autres options", puis "Créer un raccourci".
+echo      3. Fais glisser ce raccourci dans le dossier Démarrage.
+explorer shell:startup
 
 :fin
 echo.

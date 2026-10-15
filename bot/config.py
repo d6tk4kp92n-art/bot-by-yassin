@@ -203,7 +203,8 @@ class Config:
             raise ValueError(
                 "Il manque dans le fichier .env : "
                 + ", ".join(manquants)
-                + ". Ouvre .env et remplis ces lignes (voir .env.example)."
+                + ". Remplis ces lignes dans le fichier .env (pas dans .env.example, qui n'est"
+                " qu'un modèle)."
             )
         assert owner is not None and salon is not None
         return cls(
